@@ -68,6 +68,13 @@
             <scope>test</scope>
         </dependency>
 
+		<!-- Testes parametrizados (JUnit 5 Params) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
