@@ -3,7 +3,7 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/senai_futebol
+    url: jdbc:postgresql://localhost:5433/senai_futebol
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
