@@ -1,6 +1,9 @@
 package com.senai.backend.model;
 
+import com.senai.backend.domain.calculator.MarketValueCalculator;
+import com.senai.backend.domain.calculator.OverallCalculator;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,8 +26,8 @@ public class Jogador {
     @Column(nullable = false)
     private Integer idade;
 
-    @Column(name = "valor_base", nullable = false, columnDefinition = "NUMERIC")
-    private Double valorBase;
+    @Column(name = "valor_base", nullable = false, precision = 10, scale = 2)
+    private BigDecimal valorBase;
 
     @Column(nullable = false, length = 20)
     private String condicao = "APTO";
@@ -54,6 +57,12 @@ public class Jogador {
     @Column(nullable = false)
     private Integer potencial;
 
+    @Column(nullable = false)
+    private Integer overall;
+
+    @Column(name = "valor_mercado", nullable = false, precision = 10, scale = 2)
+    private BigDecimal valorMercado;
+
     @Column(name = "excluido_em")
     private LocalDateTime excluidoEm;
 
@@ -63,140 +72,89 @@ public class Jogador {
     public Jogador() {
     }
 
-    // Getters e Setters
-    public Integer getId() {
-        return id;
+    @PrePersist
+    @PreUpdate
+    public void calcularAtributos() {
+        if (this.posicao != null && this.velocidade != null && this.finalizacao != null &&
+            this.passe != null && this.drible != null && this.defesa != null && this.fisico != null) {
+            
+            this.overall = OverallCalculator.calcular(
+                    this.posicao, this.velocidade, this.finalizacao, 
+                    this.passe, this.drible, this.defesa, this.fisico
+            );
+        }
+
+        if (this.overall != null && this.potencial != null && this.idade != null) {
+            this.valorBase = MarketValueCalculator.calcularValorBase(
+                    this.overall, this.potencial, this.idade
+            );
+        }
+
+        if (this.valorBase != null && this.condicao != null && this.idade != null && this.agilidade != null) {
+            this.valorMercado = MarketValueCalculator.calcularValorMercado(
+                    this.valorBase, this.condicao, this.idade, this.agilidade
+            );
+        }
+        
+        if (this.criadoEm == null) {
+            this.criadoEm = LocalDateTime.now();
+        }
     }
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
 
-    public String getNome() {
-        return nome;
-    }
+    public String getNome() { return nome; }
+    public void setNome(String nome) { this.nome = nome; }
 
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
+    public String getPosicao() { return posicao; }
+    public void setPosicao(String posicao) { this.posicao = posicao; }
 
-    public String getPosicao() {
-        return posicao;
-    }
+    public Integer getAgilidade() { return agilidade; }
+    public void setAgilidade(Integer agilidade) { this.agilidade = agilidade; }
 
-    public void setPosicao(String posicao) {
-        this.posicao = posicao;
-    }
+    public Integer getIdade() { return idade; }
+    public void setIdade(Integer idade) { this.idade = idade; }
 
-    public Integer getAgilidade() {
-        return agilidade;
-    }
+    public BigDecimal getValorBase() { return valorBase; }
+    public void setValorBase(BigDecimal valorBase) { this.valorBase = valorBase; }
 
-    public void setAgilidade(Integer agilidade) {
-        this.agilidade = agilidade;
-    }
+    public String getCondicao() { return condicao; }
+    public void setCondicao(String condicao) { this.condicao = condicao; }
 
-    public Integer getIdade() {
-        return idade;
-    }
+    public Clube getClube() { return clube; }
+    public void setClube(Clube clube) { this.clube = clube; }
 
-    public void setIdade(Integer idade) {
-        this.idade = idade;
-    }
+    public Integer getVelocidade() { return velocidade; }
+    public void setVelocidade(Integer velocidade) { this.velocidade = velocidade; }
 
-    public Double getValorBase() {
-        return valorBase;
-    }
+    public Integer getFinalizacao() { return finalizacao; }
+    public void setFinalizacao(Integer finalizacao) { this.finalizacao = finalizacao; }
 
-    public void setValorBase(Double valorBase) {
-        this.valorBase = valorBase;
-    }
+    public Integer getPasse() { return passe; }
+    public void setPasse(Integer passe) { this.passe = passe; }
 
-    public String getCondicao() {
-        return condicao;
-    }
+    public Integer getDrible() { return drible; }
+    public void setDrible(Integer drible) { this.drible = drible; }
 
-    public void setCondicao(String condicao) {
-        this.condicao = condicao;
-    }
+    public Integer getDefesa() { return defesa; }
+    public void setDefesa(Integer defesa) { this.defesa = defesa; }
 
-    public Clube getClube() {
-        return clube;
-    }
+    public Integer getFisico() { return fisico; }
+    public void setFisico(Integer fisico) { this.fisico = fisico; }
 
-    public void setClube(Clube clube) {
-        this.clube = clube;
-    }
+    public Integer getPotencial() { return potencial; }
+    public void setPotencial(Integer potencial) { this.potencial = potencial; }
 
-    public Integer getVelocidade() {
-        return velocidade;
-    }
+    public Integer getOverall() { return overall; }
+    public void setOverall(Integer overall) { this.overall = overall; }
 
-    public void setVelocidade(Integer velocidade) {
-        this.velocidade = velocidade;
-    }
+    public BigDecimal getValorMercado() { return valorMercado; }
+    public void setValorMercado(BigDecimal valorMercado) { this.valorMercado = valorMercado; }
 
-    public Integer getFinalizacao() {
-        return finalizacao;
-    }
+    public LocalDateTime getExcluidoEm() { return excluidoEm; }
+    public void setExcluidoEm(LocalDateTime excluidoEm) { this.excluidoEm = excluidoEm; }
 
-    public void setFinalizacao(Integer finalizacao) {
-        this.finalizacao = finalizacao;
-    }
-
-    public Integer getPasse() {
-        return passe;
-    }
-
-    public void setPasse(Integer passe) {
-        this.passe = passe;
-    }
-
-    public Integer getDrible() {
-        return drible;
-    }
-
-    public void setDrible(Integer drible) {
-        this.drible = drible;
-    }
-
-    public Integer getDefesa() {
-        return defesa;
-    }
-
-    public void setDefesa(Integer defesa) {
-        this.defesa = defesa;
-    }
-
-    public Integer getFisico() {
-        return fisico;
-    }
-
-    public void setFisico(Integer fisico) {
-        this.fisico = fisico;
-    }
-
-    public Integer getPotencial() {
-        return potencial;
-    }
-
-    public void setPotencial(Integer potencial) {
-        this.potencial = potencial;
-    }
-
-    public LocalDateTime getExcluidoEm() {
-        return excluidoEm;
-    }
-
-    public void setExcluidoEm(LocalDateTime excluidoEm) {
-        this.excluidoEm = excluidoEm;
-    }
-
-    public LocalDateTime getCriadoEm() {
-        return criadoEm;
-    }
-
-    public void setCriadoEm(LocalDateTime criadoEm) {
-        this.criadoEm = criadoEm;
-    }
+    public LocalDateTime getCriadoEm() { return criadoEm; }
+    public void setCriadoEm(LocalDateTime criadoEm) { this.criadoEm = criadoEm; }
 }
