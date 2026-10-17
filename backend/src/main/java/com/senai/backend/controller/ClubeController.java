@@ -1,19 +1,18 @@
 package com.senai.backend.controller;
 
-import com.senai.backend.model.Clube;
-import com.senai.backend.model.Jogador;
+import com.senai.backend.dto.request.ClubeCreateRequest;
+import com.senai.backend.dto.response.ClubeDetailResponse;
+import com.senai.backend.dto.response.ClubeResponse;
 import com.senai.backend.service.ClubeService;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.util.HashMap;
+import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/clubs")
+@RequestMapping("/api/v1/clubs")
 public class ClubeController {
 
     private final ClubeService clubeService;
@@ -23,42 +22,27 @@ public class ClubeController {
     }
 
     @PostMapping
-    public ResponseEntity<Clube> criar(@RequestBody Clube clube) {
-        Clube novoClube = clubeService.salvar(clube);
-        return ResponseEntity.status(HttpStatus.CREATED).body(novoClube);
+    public ResponseEntity<ClubeResponse> criar(@Valid @RequestBody ClubeCreateRequest request) {
+        ClubeResponse novoClube = clubeService.criar(request);
+        URI location = URI.create("/api/v1/clubs/" + novoClube.getId());
+        return ResponseEntity.created(location).body(novoClube);
     }
 
     @GetMapping
-    public ResponseEntity<List<Clube>> listar(@RequestParam(required = false) String sort) {
-        List<Clube> clubes = clubeService.listarTodos(sort);
+    public ResponseEntity<List<ClubeResponse>> listar(@RequestParam(required = false) String sort) {
+        List<ClubeResponse> clubes = clubeService.listarTodos(sort);
         return ResponseEntity.ok(clubes);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ClubeDetailResponse> buscarPorId(@PathVariable Integer id) {
+        ClubeDetailResponse clube = clubeService.buscarDetalhePorId(id);
+        return ResponseEntity.ok(clube);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Integer id) {
         clubeService.deletar(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> buscarPorId(@PathVariable Integer id) {
-        Clube clube = clubeService.buscarPorId(id);
-        BigDecimal valorElenco = clubeService.calcularValorElenco(id);
-        BigDecimal patrimonio = clubeService.calcularPatrimonio(clube);
-        List<Jogador> elenco = clubeService.obterElencoOrdenado(id);
-
-        // Montar resposta detalhada exigida pela RN11
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", clube.getId());
-        response.put("name", clube.getNome());
-        response.put("acronym", clube.getSigla());
-        response.put("cash", clube.getCaixa());
-        response.put("formation", clube.getFormacao());
-        response.put("created_at", clube.getCriado_em());
-        response.put("squad_value", valorElenco);
-        response.put("net_worth", patrimonio);
-        response.put("squad", elenco);
-
-        return ResponseEntity.ok(response);
     }
 }
