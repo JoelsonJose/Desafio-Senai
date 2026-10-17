@@ -11,14 +11,20 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.List;
 
+import com.senai.backend.dto.request.LineupRequest;
+import com.senai.backend.dto.response.LineupResponse;
+import com.senai.backend.service.PartidaService;
+
 @RestController
 @RequestMapping("/api/v1/clubs")
 public class ClubeController {
 
     private final ClubeService clubeService;
+    private final PartidaService partidaService;
 
-    public ClubeController(ClubeService clubeService) {
+    public ClubeController(ClubeService clubeService, PartidaService partidaService) {
         this.clubeService = clubeService;
+        this.partidaService = partidaService;
     }
 
     @PostMapping
@@ -44,5 +50,20 @@ public class ClubeController {
     public ResponseEntity<Void> deletar(@PathVariable Integer id) {
         clubeService.deletar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/lineup")
+    public ResponseEntity<LineupResponse> definirEscalacao(
+            @PathVariable Integer id,
+            @Valid @RequestBody LineupRequest request
+    ) {
+        LineupResponse response = partidaService.definirEscalacao(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/lineup")
+    public ResponseEntity<LineupResponse> buscarEscalacao(@PathVariable Integer id) {
+        LineupResponse response = partidaService.buscarEscalacao(id);
+        return ResponseEntity.ok(response);
     }
 }

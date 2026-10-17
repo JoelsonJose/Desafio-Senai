@@ -11,5 +11,7 @@ public interface PartidaRepository extends JpaRepository<Partida, Integer> {
 
     boolean existsByMandanteIdOrVisitanteId(Integer mandanteId, Integer visitanteId);
 
-    List<Partida> findByMandanteIdOrVisitanteId(Integer mandanteId, Integer visitanteId);
+    List<Partida> findAllByOrderByJogadaEmDescIdDesc();
+
+    List<Partida> findByMandanteIdOrVisitanteIdOrderByJogadaEmDescIdDesc(Integer mandanteId, Integer visitanteId);
 }
