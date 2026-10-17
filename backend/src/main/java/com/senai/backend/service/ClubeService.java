@@ -9,7 +9,12 @@ import com.senai.backend.exception.ResourceNotFoundException;
 import com.senai.backend.model.Clube;
 import com.senai.backend.model.Contrato;
 import com.senai.backend.model.Jogador;
-import com.senai.backend.repository.*;
+import com.senai.backend.repository.ClubeRepository;
+import com.senai.backend.repository.ContratoRepository;
+import com.senai.backend.repository.EscalacaoRepository;
+import com.senai.backend.repository.JogadorRepository;
+import com.senai.backend.repository.PartidaRepository;
+import com.senai.backend.repository.TransacaoRepository;
 import com.senai.backend.util.ClubeMapper;
 import com.senai.backend.util.JogadorMapper;
 import com.senai.backend.util.ValidationUtils;
@@ -18,7 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.text.Collator;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service

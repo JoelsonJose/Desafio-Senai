@@ -4,9 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import com.senai.backend.domain.calculator.MarketValueCalculator;
-import com.senai.backend.domain.calculator.OverallCalculator;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
