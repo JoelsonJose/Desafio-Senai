@@ -1,9 +1,12 @@
 package com.senai.backend.service;
 
+import com.senai.backend.dto.request.CompraRequest;
+import com.senai.backend.dto.response.*;
 import com.senai.backend.exception.BusinessException;
 import com.senai.backend.exception.ResourceNotFoundException;
 import com.senai.backend.model.*;
 import com.senai.backend.repository.*;
+import com.senai.backend.util.TransacaoMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,7 +14,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class MercadoService {
@@ -20,76 +25,84 @@ public class MercadoService {
     private final JogadorRepository jogadorRepository;
     private final ContratoRepository contratoRepository;
     private final TransacaoRepository transacaoRepository;
+    private final EscalacaoRepository escalacaoRepository;
 
     public MercadoService(ClubeRepository clubeRepository,
                           JogadorRepository jogadorRepository,
                           ContratoRepository contratoRepository,
-                          TransacaoRepository transacaoRepository) {
+                          TransacaoRepository transacaoRepository,
+                          EscalacaoRepository escalacaoRepository) {
         this.clubeRepository = clubeRepository;
         this.jogadorRepository = jogadorRepository;
         this.contratoRepository = contratoRepository;
         this.transacaoRepository = transacaoRepository;
+        this.escalacaoRepository = escalacaoRepository;
     }
 
     @Transactional
-    public Transacao comprarJogador(Integer jogadorId, Integer clubeId, LocalDateTime fidelidadeAte) {
+    public CompraResponse comprarJogador(Integer jogadorId, CompraRequest request) {
+        OffsetDateTime parsedLoyalty = request.validateAndGetLoyaltyUntil();
+        LocalDateTime fidelidadeAte = parsedLoyalty.toLocalDateTime();
+        Integer clubeId = request.getClubId();
+
         Clube clube = clubeRepository.findById(clubeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Clube não encontrado com o ID: " + clubeId));
-        Jogador jogador = jogadorRepository.findById(jogadorId)
+
+        Jogador jogador = jogadorRepository.findByIdAndExcluidoEmIsNull(jogadorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Jogador não encontrado com o ID: " + jogadorId));
 
-        if (jogador.getExcluidoEm() != null) {
-            throw new ResourceNotFoundException("Jogador não encontrado.");
-        }
-
+        // RN13: Jogador já pertence a um clube -> 409 Conflict
         if (jogador.getClube() != null) {
-            throw new BusinessException("O jogador já pertence a um clube e não está livre para compra.");
+            throw new BusinessException("O jogador já possui vínculo com outro clube.");
         }
 
+        // RN13: Recompra proibida se o mesmo clube já vendeu esse jogador -> 409 Conflict
         boolean jaVendeuAntes = transacaoRepository.findByClubeIdOrderByCriadoEmDescIdDesc(clubeId).stream()
-                .anyMatch(t -> t.getJogador().getId().equals(jogadorId) && "VENDA".equals(t.getTipo()));
+                .anyMatch(t -> t.getJogador().getId().equals(jogadorId) && "VENDA".equalsIgnoreCase(t.getTipo()));
         if (jaVendeuAntes) {
-            throw new BusinessException("Um clube não pode recomprar um jogador que ele mesmo já vendeu.");
+            throw new BusinessException("Um clube não pode recomprar um jogador que ele mesmo já vendeu anteriormente.");
         }
 
-        List<Jogador> elencoAtual = jogadorRepository.findByClubeId(clubeId);
+        // RN13: Elenco máximo de 12 jogadores -> 409 Conflict
+        List<Jogador> elencoAtual = jogadorRepository.findByClubeIdAndExcluidoEmIsNull(clubeId);
         if (elencoAtual.size() >= 12) {
-            throw new BusinessException("O clube atingiu o limite máximo de 12 jogadores no elenco.");
-        }
-
-        LocalDateTime agora = LocalDateTime.now();
-        if (fidelidadeAte.isBefore(agora) || fidelidadeAte.isAfter(agora.plusDays(1095))) {
-            throw new BusinessException("A data de fidelidade deve ser futura e no máximo 1.095 dias após a compra.");
+            throw new BusinessException("O clube já atingiu o limite máximo de 12 jogadores no elenco.");
         }
 
         BigDecimal valorMercado = jogador.getValorMercado();
         BigDecimal taxa = BigDecimal.ZERO;
-        
+
+        // RN13: Se o valor de mercado for estritamente maior que R$ 30,00, taxa federativa de 5%
         if (valorMercado.compareTo(new BigDecimal("30.00")) > 0) {
             taxa = valorMercado.multiply(new BigDecimal("0.05")).setScale(2, RoundingMode.HALF_UP);
         }
 
         BigDecimal custoTotal = valorMercado.add(taxa);
-        
-        BigDecimal limiteCaixa = clube.getCaixa().multiply(new BigDecimal("0.50"));
+
+        // RN13: Custo total não pode ultrapassar 50% do caixa disponível do clube -> 409 Conflict
+        BigDecimal limiteCaixa = clube.getCaixa().multiply(new BigDecimal("0.50")).setScale(2, RoundingMode.HALF_UP);
         if (custoTotal.compareTo(limiteCaixa) > 0) {
-            throw new BusinessException("O custo total da compra passa do limite de 50% do caixa do clube.");
+            throw new BusinessException("O custo total da operação (" + custoTotal + ") ultrapassa o limite permitido de 50% do caixa do clube (" + limiteCaixa + ").");
         }
 
+        // Atualiza caixa do clube
         clube.setCaixa(clube.getCaixa().subtract(custoTotal).setScale(2, RoundingMode.HALF_UP));
         clubeRepository.save(clube);
 
+        // Vincula jogador ao clube
         jogador.setClube(clube);
         jogadorRepository.save(jogador);
 
+        // Cria contrato de fidelidade
         Contrato contrato = new Contrato();
         contrato.setJogador(jogador);
         contrato.setClube(clube);
         contrato.setValorCompra(valorMercado);
         contrato.setFidelidadeAte(fidelidadeAte);
         contrato.setSituacao("ATIVO");
-        contratoRepository.save(contrato);
+        contrato = contratoRepository.save(contrato);
 
+        // Registra transação
         Transacao transacao = new Transacao();
         transacao.setClube(clube);
         transacao.setJogador(jogador);
@@ -100,28 +113,29 @@ public class MercadoService {
         transacao.setMulta(BigDecimal.ZERO);
         transacao.setLucro(null);
         transacao.setVariacaoCaixa(custoTotal.negate());
-        transacaoRepository.save(transacao);
+        transacao = transacaoRepository.save(transacao);
 
-        return transacao;
+        return TransacaoMapper.toCompraResponse(transacao, contrato, clube.getCaixa());
     }
 
     @Transactional
-    public Transacao venderJogador(Integer jogadorId) {
-        Jogador jogador = jogadorRepository.findById(jogadorId)
+    public VendaResponse venderJogador(Integer jogadorId) {
+        Jogador jogador = jogadorRepository.findByIdAndExcluidoEmIsNull(jogadorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Jogador não encontrado com o ID: " + jogadorId));
 
-        if (jogador.getExcluidoEm() != null || jogador.getClube() == null) {
-            throw new BusinessException("O jogador não pertence a nenhum clube para poder ser vendido.");
+        if (jogador.getClube() == null) {
+            throw new BusinessException("O jogador é um agente livre e não pertence a nenhum clube para poder ser vendido.");
         }
 
         Clube clube = jogador.getClube();
 
         Contrato contrato = contratoRepository.findByJogadorIdAndSituacao(jogadorId, "ATIVO")
-                .orElseThrow(() -> new ResourceNotFoundException("Contrato ativo não encontrado para este jogador."));
+                .orElseThrow(() -> new ResourceNotFoundException("Contrato ativo não encontrado para o jogador informado."));
 
         LocalDateTime agora = LocalDateTime.now();
         BigDecimal valorVenda = jogador.getValorMercado();
 
+        // Cálculo dos dias restantes de fidelidade (RN14)
         long horasRestantes = Duration.between(agora, contrato.getFidelidadeAte()).toHours();
         long diasRestantes = 0;
         if (horasRestantes > 0) {
@@ -137,15 +151,16 @@ public class MercadoService {
             percentualMulta = 20;
         }
 
+        // Multa rescisória com teto de R$ 10,00
         BigDecimal multa = valorVenda.multiply(new BigDecimal(percentualMulta))
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        
         if (multa.compareTo(new BigDecimal("10.00")) > 0) {
             multa = new BigDecimal("10.00");
         }
 
         String novaSituacaoContrato = (percentualMulta > 0) ? "RESCINDIDO" : "ENCERRADO";
 
+        // Cálculo de lucro e comissão federativa escalonada (RN14)
         BigDecimal valorCompra = contrato.getValorCompra();
         BigDecimal lucro = valorVenda.subtract(valorCompra);
 
@@ -154,25 +169,32 @@ public class MercadoService {
             if (lucro.compareTo(new BigDecimal("10.00")) <= 0) {
                 comissao = lucro.multiply(new BigDecimal("0.10"));
             } else {
-                BigDecimal parte1 = new BigDecimal("10.00").multiply(new BigDecimal("0.10"));
-                BigDecimal parte2 = lucro.subtract(new BigDecimal("10.00")).multiply(new BigDecimal("0.20"));
-                comissao = parte1.add(parte2);
+                BigDecimal faixa1 = new BigDecimal("10.00").multiply(new BigDecimal("0.10"));
+                BigDecimal faixa2 = lucro.subtract(new BigDecimal("10.00")).multiply(new BigDecimal("0.20"));
+                comissao = faixa1.add(faixa2);
             }
             comissao = comissao.setScale(2, RoundingMode.HALF_UP);
         }
 
         BigDecimal creditoCaixa = valorVenda.subtract(multa).subtract(comissao).setScale(2, RoundingMode.HALF_UP);
 
+        // Atualiza caixa do clube
         clube.setCaixa(clube.getCaixa().add(creditoCaixa).setScale(2, RoundingMode.HALF_UP));
         clubeRepository.save(clube);
 
+        // Encerra ou rescinde contrato
         contrato.setSituacao(novaSituacaoContrato);
         contrato.setEncerradoEm(agora);
         contratoRepository.save(contrato);
 
+        // Se o jogador estava escalado pelo clube, remove-o da escalação
+        escalacaoRepository.deleteByJogadorId(jogadorId);
+
+        // Desvincula jogador do clube (torna-se agente livre)
         jogador.setClube(null);
         jogadorRepository.save(jogador);
 
+        // Registra transação
         Transacao transacao = new Transacao();
         transacao.setClube(clube);
         transacao.setJogador(jogador);
@@ -183,15 +205,58 @@ public class MercadoService {
         transacao.setMulta(multa);
         transacao.setLucro(lucro);
         transacao.setVariacaoCaixa(creditoCaixa);
-        transacaoRepository.save(transacao);
+        transacao = transacaoRepository.save(transacao);
 
-        return transacao;
+        return TransacaoMapper.toVendaResponse(
+                transacao,
+                valorCompra,
+                diasRestantes,
+                percentualMulta,
+                novaSituacaoContrato,
+                clube.getCaixa()
+        );
     }
 
-    public List<Transacao> listarTransacoesClube(Integer clubeId) {
+    @Transactional(readOnly = true)
+    public TransacoesListResponse listarTransacoesClube(Integer clubeId) {
         if (!clubeRepository.existsById(clubeId)) {
             throw new ResourceNotFoundException("Clube não encontrado com o ID: " + clubeId);
         }
-        return transacaoRepository.findByClubeIdOrderByCriadoEmDescIdDesc(clubeId);
+
+        List<Transacao> transacoes = transacaoRepository.findByClubeIdOrderByCriadoEmDescIdDesc(clubeId);
+
+        BigDecimal totalSpent = BigDecimal.ZERO;
+        BigDecimal totalReceived = BigDecimal.ZERO;
+        BigDecimal totalFees = BigDecimal.ZERO;
+        BigDecimal totalPenalties = BigDecimal.ZERO;
+        BigDecimal totalProfit = BigDecimal.ZERO;
+
+        for (Transacao t : transacoes) {
+            if ("COMPRA".equalsIgnoreCase(t.getTipo())) {
+                totalSpent = totalSpent.add(t.getValor().add(t.getTaxa()));
+                totalFees = totalFees.add(t.getTaxa());
+            } else if ("VENDA".equalsIgnoreCase(t.getTipo())) {
+                totalReceived = totalReceived.add(t.getVariacaoCaixa());
+                totalFees = totalFees.add(t.getTaxa());
+                totalPenalties = totalPenalties.add(t.getMulta());
+                if (t.getLucro() != null && t.getLucro().compareTo(BigDecimal.ZERO) > 0) {
+                    totalProfit = totalProfit.add(t.getLucro());
+                }
+            }
+        }
+
+        TransacoesSummaryResponse summary = new TransacoesSummaryResponse(
+                totalSpent.setScale(2, RoundingMode.HALF_UP),
+                totalReceived.setScale(2, RoundingMode.HALF_UP),
+                totalFees.setScale(2, RoundingMode.HALF_UP),
+                totalPenalties.setScale(2, RoundingMode.HALF_UP),
+                totalProfit.setScale(2, RoundingMode.HALF_UP)
+        );
+
+        List<TransacaoResponse> dtoList = transacoes.stream()
+                .map(TransacaoMapper::toResponse)
+                .collect(Collectors.toList());
+
+        return new TransacoesListResponse(dtoList, summary);
     }
 }
