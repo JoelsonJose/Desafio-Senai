@@ -7,9 +7,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface ClubeRepository extends JpaRepository<Clube, Long> {
+public interface ClubeRepository extends JpaRepository<Clube, Integer> {
 
     boolean existsBySigla(String sigla);
+
+    boolean existsByNomeNormalizado(String nomeNormalizado);
 
     Optional<Clube> findBySigla(String sigla);
 }

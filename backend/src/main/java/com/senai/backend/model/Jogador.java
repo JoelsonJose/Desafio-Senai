@@ -57,10 +57,10 @@ public class Jogador {
     @Column(nullable = false)
     private Integer potencial;
 
-    @Column(nullable = false)
+    @Transient
     private Integer overall;
 
-    @Column(name = "valor_mercado", nullable = false, precision = 10, scale = 2)
+    @Transient
     private BigDecimal valorMercado;
 
     @Column(name = "excluido_em")
@@ -69,12 +69,49 @@ public class Jogador {
     @Column(name = "criado_em")
     private LocalDateTime criadoEm;
 
+    @Column(name = "atualizado_em")
+    private LocalDateTime atualizadoEm;
+
     public Jogador() {
     }
 
     @PrePersist
+    public void prePersist() {
+        if (this.criadoEm == null) {
+            this.criadoEm = LocalDateTime.now();
+        }
+        if (this.atualizadoEm == null) {
+            this.atualizadoEm = LocalDateTime.now();
+        }
+        calcularAtributosCadastro();
+    }
+
     @PreUpdate
-    public void calcularAtributos() {
+    public void preUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
+        calcularAtributosDinamicos();
+    }
+
+    @PostLoad
+    public void postLoad() {
+        calcularAtributosDinamicos();
+    }
+
+    public void calcularAtributosCadastro() {
+        calcularAtributosDinamicos();
+        if (this.overall != null && this.potencial != null && this.idade != null && this.valorBase == null) {
+            this.valorBase = MarketValueCalculator.calcularValorBase(
+                    this.overall, this.potencial, this.idade
+            );
+        }
+        if (this.valorBase != null && this.condicao != null && this.idade != null && this.agilidade != null) {
+            this.valorMercado = MarketValueCalculator.calcularValorMercado(
+                    this.valorBase, this.condicao, this.idade, this.agilidade
+            );
+        }
+    }
+
+    public void calcularAtributosDinamicos() {
         if (this.posicao != null && this.velocidade != null && this.finalizacao != null &&
             this.passe != null && this.drible != null && this.defesa != null && this.fisico != null) {
             
@@ -84,20 +121,10 @@ public class Jogador {
             );
         }
 
-        if (this.overall != null && this.potencial != null && this.idade != null) {
-            this.valorBase = MarketValueCalculator.calcularValorBase(
-                    this.overall, this.potencial, this.idade
-            );
-        }
-
         if (this.valorBase != null && this.condicao != null && this.idade != null && this.agilidade != null) {
             this.valorMercado = MarketValueCalculator.calcularValorMercado(
                     this.valorBase, this.condicao, this.idade, this.agilidade
             );
-        }
-        
-        if (this.criadoEm == null) {
-            this.criadoEm = LocalDateTime.now();
         }
     }
 
@@ -146,10 +173,20 @@ public class Jogador {
     public Integer getPotencial() { return potencial; }
     public void setPotencial(Integer potencial) { this.potencial = potencial; }
 
-    public Integer getOverall() { return overall; }
+    public Integer getOverall() { 
+        if (this.overall == null) {
+            calcularAtributosDinamicos();
+        }
+        return overall; 
+    }
     public void setOverall(Integer overall) { this.overall = overall; }
 
-    public BigDecimal getValorMercado() { return valorMercado; }
+    public BigDecimal getValorMercado() { 
+        if (this.valorMercado == null) {
+            calcularAtributosDinamicos();
+        }
+        return valorMercado; 
+    }
     public void setValorMercado(BigDecimal valorMercado) { this.valorMercado = valorMercado; }
 
     public LocalDateTime getExcluidoEm() { return excluidoEm; }
@@ -157,4 +194,7 @@ public class Jogador {
 
     public LocalDateTime getCriadoEm() { return criadoEm; }
     public void setCriadoEm(LocalDateTime criadoEm) { this.criadoEm = criadoEm; }
+
+    public LocalDateTime getAtualizadoEm() { return atualizadoEm; }
+    public void setAtualizadoEm(LocalDateTime atualizadoEm) { this.atualizadoEm = atualizadoEm; }
 }

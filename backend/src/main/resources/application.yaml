@@ -3,18 +3,19 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/senai_futebol
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:senai_futebol}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    open-in-view: false
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   flyway:
     enabled: true
@@ -25,3 +26,9 @@ spring:
     time-zone: "America/Sao_Paulo"
     serialization:
       write-dates-as-timestamps: false
+
+server:
+  port: ${PORT:8080}
+
+cors:
+  origin: ${CORS_ORIGIN:http://localhost:5173}
