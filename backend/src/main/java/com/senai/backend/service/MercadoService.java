@@ -6,6 +6,7 @@ import com.senai.backend.exception.BusinessException;
 import com.senai.backend.exception.ResourceNotFoundException;
 import com.senai.backend.model.*;
 import com.senai.backend.repository.*;
+import com.senai.backend.util.DateTimeUtils;
 import com.senai.backend.util.TransacaoMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,9 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -218,12 +221,8 @@ public class MercadoService {
     }
 
     @Transactional(readOnly = true)
-    public TransacoesListResponse listarTransacoesClube(Integer clubeId) {
-        if (!clubeRepository.existsById(clubeId)) {
-            throw new ResourceNotFoundException("Clube não encontrado com o ID: " + clubeId);
-        }
-
-        List<Transacao> transacoes = transacaoRepository.findByClubeIdOrderByCriadoEmDescIdDesc(clubeId);
+    public TransacoesListResponse listarTransacoesClube(Integer clubeId, String type, Integer playerId) {
+        List<Transacao> filtradas = obterTransacoesFiltradas(clubeId, type, playerId);
 
         BigDecimal totalSpent = BigDecimal.ZERO;
         BigDecimal totalReceived = BigDecimal.ZERO;
@@ -231,7 +230,7 @@ public class MercadoService {
         BigDecimal totalPenalties = BigDecimal.ZERO;
         BigDecimal totalProfit = BigDecimal.ZERO;
 
-        for (Transacao t : transacoes) {
+        for (Transacao t : filtradas) {
             if ("COMPRA".equalsIgnoreCase(t.getTipo())) {
                 totalSpent = totalSpent.add(t.getValor().add(t.getTaxa()));
                 totalFees = totalFees.add(t.getTaxa());
@@ -239,7 +238,7 @@ public class MercadoService {
                 totalReceived = totalReceived.add(t.getVariacaoCaixa());
                 totalFees = totalFees.add(t.getTaxa());
                 totalPenalties = totalPenalties.add(t.getMulta());
-                if (t.getLucro() != null && t.getLucro().compareTo(BigDecimal.ZERO) > 0) {
+                if (t.getLucro() != null) {
                     totalProfit = totalProfit.add(t.getLucro());
                 }
             }
@@ -253,10 +252,97 @@ public class MercadoService {
                 totalProfit.setScale(2, RoundingMode.HALF_UP)
         );
 
-        List<TransacaoResponse> dtoList = transacoes.stream()
+        List<TransacaoResponse> dtoList = filtradas.stream()
                 .map(TransacaoMapper::toResponse)
                 .collect(Collectors.toList());
 
         return new TransacoesListResponse(dtoList, summary);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportarTransacoesCsv(Integer clubeId, String type, Integer playerId) {
+        List<Transacao> filtradas = obterTransacoesFiltradas(clubeId, type, playerId);
+
+        StringBuilder sb = new StringBuilder();
+        // Cabeçalho da RN18
+        sb.append("data_hora;tipo;jogador;valor;taxa_ou_comissao;multa;lucro;variacao_caixa\n");
+
+        for (Transacao t : filtradas) {
+            String dataHora = DateTimeUtils.formatResponse(t.getCriadoEm());
+            String tipo = t.getTipo();
+            String nome = formatarNomeCsv(t.getNomeJogador());
+            String valor = formatarMoedaCsv(t.getValor());
+            String taxa = formatarMoedaCsv(t.getTaxa());
+            String multa = formatarMoedaCsv(t.getMulta());
+            String lucro = t.getLucro() != null ? formatarMoedaCsv(t.getLucro()) : "";
+            String variacao = formatarMoedaCsv(t.getVariacaoCaixa());
+
+            sb.append(dataHora).append(";")
+                    .append(tipo).append(";")
+                    .append(nome).append(";")
+                    .append(valor).append(";")
+                    .append(taxa).append(";")
+                    .append(multa).append(";")
+                    .append(lucro).append(";")
+                    .append(variacao).append("\n");
+        }
+
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private List<Transacao> obterTransacoesFiltradas(Integer clubeId, String type, Integer playerId) {
+        if (!clubeRepository.existsById(clubeId)) {
+            throw new ResourceNotFoundException("Clube não encontrado com o ID: " + clubeId);
+        }
+
+        if (playerId != null) {
+            // Jogador inexistente ou excluído -> 404
+            jogadorRepository.findByIdAndExcluidoEmIsNull(playerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Jogador não encontrado com o ID: " + playerId));
+        }
+
+        Set<String> tiposFiltro = null;
+        if (type != null) {
+            if (type.trim().isEmpty()) {
+                throw new IllegalArgumentException("O parâmetro type não pode ser vazio.");
+            }
+            String[] split = type.split(",");
+            tiposFiltro = new HashSet<>();
+            for (String s : split) {
+                // RN17: case-sensitive estrito, sem espaços
+                if (!s.equals("COMPRA") && !s.equals("VENDA")) {
+                    throw new IllegalArgumentException("Tipo de transação inválido: " + s + ". Valores aceitos: COMPRA, VENDA.");
+                }
+                if (!tiposFiltro.add(s)) {
+                    throw new IllegalArgumentException("O parâmetro type não pode conter valores repetidos.");
+                }
+            }
+        }
+
+        List<Transacao> transacoes = transacaoRepository.findByClubeIdOrderByCriadoEmDescIdDesc(clubeId);
+        final Set<String> tiposFinal = tiposFiltro;
+
+        return transacoes.stream().filter(t -> {
+            if (tiposFinal != null && !tiposFinal.contains(t.getTipo())) {
+                return false;
+            }
+            if (playerId != null && !t.getJogador().getId().equals(playerId)) {
+                return false;
+            }
+            return true;
+        }).collect(Collectors.toList());
+    }
+
+    private String formatarNomeCsv(String nome) {
+        if (nome == null) return "";
+        if (nome.contains(";") || nome.contains("\"")) {
+            return "\"" + nome.replace("\"", "\"\"") + "\"";
+        }
+        return nome;
+    }
+
+    private String formatarMoedaCsv(BigDecimal valor) {
+        if (valor == null) return "0,00";
+        return valor.setScale(2, RoundingMode.HALF_UP).toString().replace(".", ",");
     }
 }

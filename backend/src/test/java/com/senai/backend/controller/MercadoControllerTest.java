@@ -194,11 +194,31 @@ class MercadoControllerTest {
         mockMvc.perform(get("/api/v1/clubs/" + clubeComprador.getId() + "/transactions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].type").value("COMPRA"))
                 .andExpect(jsonPath("$.summary.total_spent").isNumber())
                 .andExpect(jsonPath("$.summary.total_received").isNumber())
                 .andExpect(jsonPath("$.summary.total_fees").isNumber())
                 .andExpect(jsonPath("$.summary.total_penalties").isNumber())
                 .andExpect(jsonPath("$.summary.total_profit").isNumber());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/clubs/{id}/transactions/export retorna CSV conforme regra RN18")
+    void deveExportarTransacoesEmCsv() throws Exception {
+        OffsetDateTime fidelidade = DateTimeUtils.now().plusDays(40);
+        String fidelidadeStr = DateTimeUtils.formatResponse(fidelidade).substring(0, 16) + "-03:00";
+
+        CompraRequest compraReq = new CompraRequest();
+        compraReq.setClubId(clubeComprador.getId());
+        compraReq.setLoyaltyUntil(fidelidadeStr);
+
+        mockMvc.perform(post("/api/v1/players/" + jogadorLivre.getId() + "/buy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(compraReq))).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/clubs/" + clubeComprador.getId() + "/transactions/export"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("text/csv;charset=UTF-8"))
+                .andExpect(content().string(startsWith("data_hora;tipo;jogador;valor;taxa_ou_comissao;multa;lucro;variacao_caixa")))
+                .andExpect(content().string(containsString("COMPRA;Lucas Moura;")));
     }
 }

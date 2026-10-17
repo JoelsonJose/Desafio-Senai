@@ -35,8 +35,24 @@ public class MercadoController {
     }
 
     @GetMapping("/clubs/{id}/transactions")
-    public ResponseEntity<TransacoesListResponse> listarTransacoes(@PathVariable Integer id) {
-        TransacoesListResponse response = mercadoService.listarTransacoesClube(id);
+    public ResponseEntity<TransacoesListResponse> listarTransacoes(
+            @PathVariable Integer id,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "player_id", required = false) Integer playerId
+    ) {
+        TransacoesListResponse response = mercadoService.listarTransacoesClube(id, type, playerId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping(value = "/clubs/{id}/transactions/export", produces = "text/csv")
+    public ResponseEntity<byte[]> exportarTransacoesCsv(
+            @PathVariable Integer id,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "player_id", required = false) Integer playerId
+    ) {
+        byte[] csv = mercadoService.exportarTransacoesCsv(id, type, playerId);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .body(csv);
     }
 }
