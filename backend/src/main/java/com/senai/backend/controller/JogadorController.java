@@ -3,6 +3,7 @@ package com.senai.backend.controller;
 import com.senai.backend.dto.request.CondicaoRequest;
 import com.senai.backend.dto.request.JogadorCreateRequest;
 import com.senai.backend.dto.request.JogadorUpdateRequest;
+import com.senai.backend.dto.request.PaginationRequest;
 import com.senai.backend.dto.response.JogadorResponse;
 import com.senai.backend.dto.response.PaginatedResponse;
 import com.senai.backend.service.JogadorService;
@@ -36,19 +37,11 @@ public class JogadorController {
             @RequestParam(name = "min_value", required = false) BigDecimal minValue,
             @RequestParam(name = "max_value", required = false) BigDecimal maxValue,
             @RequestParam(name = "sort", required = false) String sort,
-            @RequestParam(name = "page", defaultValue = "1") int page,
-            @RequestParam(name = "limit", defaultValue = "10") int limit
+            @Valid @ModelAttribute PaginationRequest pagination
     ) {
-        if (page < 1) {
-            throw new IllegalArgumentException("O parâmetro page deve ser maior ou igual a 1.");
-        }
-        if (limit < 1 || limit > 100) {
-            throw new IllegalArgumentException("O parâmetro limit deve estar entre 1 e 100.");
-        }
-
         PaginatedResponse<JogadorResponse> response = jogadorService.listarPaginado(
                 search, position, condition, free, clubId,
-                minAge, maxAge, minValue, maxValue, sort, page, limit
+                minAge, maxAge, minValue, maxValue, sort, pagination.getPage(), pagination.getLimit()
         );
 
         return ResponseEntity.ok(response);

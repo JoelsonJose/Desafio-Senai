@@ -7,13 +7,13 @@ import com.senai.backend.exception.ResourceNotFoundException;
 import com.senai.backend.model.*;
 import com.senai.backend.repository.*;
 import com.senai.backend.util.DateTimeUtils;
+import com.senai.backend.util.LoyaltyCalculator;
 import com.senai.backend.util.TransacaoMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -138,21 +138,10 @@ public class MercadoService {
         LocalDateTime agora = LocalDateTime.now();
         BigDecimal valorVenda = jogador.getValorMercado();
 
-        // Cálculo dos dias restantes de fidelidade (RN14)
-        long horasRestantes = Duration.between(agora, contrato.getFidelidadeAte()).toHours();
-        long diasRestantes = 0;
-        if (horasRestantes > 0) {
-            diasRestantes = (long) Math.ceil((double) horasRestantes / 24.0);
-        }
-
-        int percentualMulta = 0;
-        if (diasRestantes >= 1 && diasRestantes <= 30) {
-            percentualMulta = 5;
-        } else if (diasRestantes >= 31 && diasRestantes <= 180) {
-            percentualMulta = 10;
-        } else if (diasRestantes >= 181) {
-            percentualMulta = 20;
-        }
+        // Cálculo dos dias restantes e percentual da multa (RN14)
+        LoyaltyCalculator.Calculation fidelidade = LoyaltyCalculator.calculate(agora, contrato.getFidelidadeAte());
+        long diasRestantes = fidelidade.remainingDays();
+        int percentualMulta = fidelidade.penaltyPercentage();
 
         // Multa rescisória com teto de R$ 10,00
         BigDecimal multa = valorVenda.multiply(new BigDecimal(percentualMulta))

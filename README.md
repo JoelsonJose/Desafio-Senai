@@ -1,206 +1,207 @@
-1# Desafio SENAI/PE - Simulador de Mercado de Futebol (Backend)
+# Passe — Gestão da Liga de Futebol
 
-Sistema backend para gerenciamento de clubes de futebol, jogadores, mercado de transferências, escalações táticas, simulações de partidas e tabela de classificação, desenvolvido em **Java 21** e **Spring Boot 3.3.5** com banco de dados relacional **PostgreSQL 16**.
+Aplicação web para administrar uma liga fictícia: jogadores, clubes, mercado de transferências, escalações, partidas e classificação. O projeto tem um frontend React e uma API REST Java/Spring Boot, com PostgreSQL para persistência.
 
----
+## Funcionalidades
 
-## 1. Pré-requisitos
+- Cadastro, edição, consulta, filtros, ordenação e remoção lógica de jogadores.
+- Cadastro e consulta de clubes, com caixa, valor do elenco, patrimônio e limite de 12 jogadores.
+- Compra e venda de jogadores, contratos de fidelidade, taxas, multas, comissões e histórico financeiro.
+- Exportação do histórico de transações em CSV.
+- Montagem da escalação titular com formação tática, prévia em campo e lista de reservas.
+- Simulação de partidas, visualização do placar e dos seis duelos, além da tabela de classificação.
+- Interface em português, sem autenticação.
 
-Para executar e testar o projeto localmente, certifique-se de possuir instalado em sua máquina:
+## Tecnologias
 
-- **Java JDK 21** (ou superior) configurado na variável de ambiente `JAVA_HOME`.
-- **Apache Maven 3.9+** (ou utilize o wrapper `./mvnw` / `.\mvnw.cmd` incluído no repositório).
-- **Docker Engine** e **Docker Compose v2** (para subir a instância do banco de dados PostgreSQL).
-- **Git** para versionamento de código.
-- *(Opcional)* **Node.js 20+** e **npm** (para execução integrada com o frontend).
+| Parte | Tecnologias |
+| --- | --- |
+| Frontend | React 18, Vite 5, React Router 6, Axios, Tailwind CSS 3 e Lucide |
+| Backend | Java 21, Spring Boot 3.3, Spring Web, Spring Data JPA, Jakarta Validation e Flyway |
+| Banco | PostgreSQL 16 |
+| Testes backend | JUnit 5, Spring Boot Test e MockMvc |
 
----
+## Arquitetura
 
-## 2. Passo a passo para criar e recriar o banco de dados
-
-O projeto utiliza **Flyway** para controle de versão do esquema relacional, garantindo reprodutibilidade completa e determinística.
-
-### 2.1. Criação do Banco de Dados via Docker Compose
-Na raiz do projeto (`Desafio Senai/`), inicie o container PostgreSQL:
-```bash
-docker compose up -d
+```text
+Navegador
+  └── React + React Router (frontend, porta 5173)
+        └── Axios /api/v1 (backend, porta 8080)
+              └── Controllers → DTOs e validação → Services → Repositories/JPA
+                    └── PostgreSQL (porta 5433 no host)
 ```
-O container `senai_futebol_db` subirá com as seguintes configurações padrão:
-- **Porta no host:** `5433` (mapeada para a porta interna `5432` do container).
-- **Banco de dados:** `senai_futebol`.
-- **Usuário:** `postgres`.
-- **Senha:** `postgres`.
 
-Ao iniciar o backend Spring Boot, o **Flyway** executará automaticamente as migrações (`V1` a `V7`) localizadas em `backend/src/main/resources/db/migration/`:
-- `V1__init_schema.sql`: Tabelas de clubes e jogadores.
-- `V2__create_transacoes_table.sql`: Registro de compras, vendas e histórico financeiro.
-- `V3__create_escalacoes_table.sql`: Registro de titulares, reservas e capitão.
-- `V4__create_partidas_table.sql`: Registro de partidas e placares.
-- `V5__create_confrontos_table.sql`: Histórico direto entre equipes.
-- `V6__seed_initial_data.sql`: Carga inicial de dados de demonstração.
-- `V7__add_nome_normalizado_to_clubes.sql`: Coluna e índice único para validação de unicidade insensível a acentuação e caixa.
+### Frontend
 
-### 2.2. Passo a passo para recriar o banco de dados do zero
-Para zerar completamente o banco de dados, descartar volumes e reaplicar as migrações:
+- `src/main.jsx` inicializa React, `BrowserRouter`, contexto da liga e notificações globais.
+- `src/App.jsx` declara as rotas e aplica `AppShell` (menu lateral, barra superior e conteúdo) às páginas internas.
+- `src/pages/` contém as telas de início, jogadores, clubes, detalhe do clube, partidas, detalhe da partida e classificação.
+- `src/components/` reúne o layout e componentes reutilizáveis de interface, como tabelas, campos, botões, modais e notificações.
+- `src/services/` agrupa as chamadas HTTP por domínio. `http.js` configura Axios, a URL base e as mensagens de erro.
+- `src/context/LeagueContext.jsx` disponibiliza totais da liga e funções para atualizar o resumo compartilhado.
+- `src/hooks/` contém hooks para carregamento assíncrono, ações, formulários e debounce.
+- As páginas usam os serviços para obter dados e enviar comandos; regras de negócio e persistência permanecem na API.
 
-1. **Parar e remover os containers e volumes persistentes:**
-   ```bash
-   docker compose down -v
-   ```
-2. **Subir novamente o banco de dados limpo:**
-   ```bash
-   docker compose up -d
-   ```
-3. **Iniciar a aplicação backend:**
-   ```bash
-   cd backend
-   ./mvnw clean spring-boot:run
-   ```
-   *(No Windows PowerShell: `.\mvnw.cmd clean spring-boot:run`)*
+### Rotas da interface
 
-O Flyway detectará a ausência do schema e aplicará todas as migrações e seeds desde a versão 1.
+| Rota | Tela |
+| --- | --- |
+| `/` | Início/apresentação da liga |
+| `/players` | Jogadores e operações de mercado |
+| `/clubs` | Lista e cadastro de clubes |
+| `/clubs/:clubId` | Elenco, escalação e histórico do clube |
+| `/matches` | Histórico e criação de partidas |
+| `/matches/:matchId` | Placar, campo e duelos da partida |
+| `/standings` | Classificação da liga |
 
----
+### Backend
 
-## 3. Passo a passo para instalar e executar
+- `controller/` expõe os endpoints REST versionados em `/api/v1`.
+- `dto/request/` define os dados de entrada e validações declarativas; `dto/response/` define o contrato enviado ao frontend.
+- `service/` implementa as regras de aplicação e coordena as operações transacionais.
+- `repository/` usa Spring Data JPA para persistência e consultas.
+- `model/` contém as entidades persistidas.
+- `domain/calculator/` concentra cálculos de domínio; `util/` contém mapeadores e utilitários compartilhados.
+- `GlobalExceptionHandler` converte erros em respostas JSON sem expor stack traces.
+- Flyway controla a evolução do schema em `src/main/resources/db/migration/`.
 
-### 3.1. Instalação das Dependências e Compilação
-Acesse a pasta `backend/` e execute:
+## Regras de negócio cobertas
+
+As regras são aplicadas pela API, mesmo quando a interface também fornece validação para facilitar o uso. Entre elas estão os limites e atributos de jogadores, limite de elenco, saldo para compra, taxa federativa, fidelidade, multa e comissão de venda, elegibilidade e formação da escalação, condição dos atletas, cálculo dos duelos e critérios de classificação. A interface não substitui as validações do backend.
+
+## Pré-requisitos
+
+- Java 21.
+- Maven 3.9 ou superior (ou Maven Wrapper, se funcionar no ambiente).
+- Node.js 20 ou superior e npm.
+- Docker com Docker Compose v2 para executar o PostgreSQL.
+
+## Executar localmente
+
+Os comandos abaixo partem da raiz do repositório.
+
+### 1. Iniciar o banco
+
+O `docker-compose.yml` atual inicia **somente o PostgreSQL**; frontend e backend são iniciados separadamente.
+
+```bash
+docker compose up -d db
+```
+
+O banco fica disponível em `localhost:5433`, com database `senai_futebol`. O Compose define as credenciais locais `postgres`/`postgres`.
+
+Ao iniciar a API, Flyway aplica automaticamente as migrações `V1` a `V7` em `backend/src/main/resources/db/migration/`:
+
+| Migração | Conteúdo |
+| --- | --- |
+| `V1__criar_tabela_clubes.sql` | Tabela de clubes |
+| `V2__criar_tabela_jogadores.sql` | Tabela de jogadores |
+| `V3__criar_tabela_contratos.sql` | Contratos de fidelidade |
+| `V4__criar_tabela_transacoes.sql` | Histórico financeiro |
+| `V5__criar_tabela_escalacoes.sql` | Escalações |
+| `V6__criar_tabela_partidas.sql` | Partidas |
+| `V7__criar_tabela_duelos_partida.sql` | Duelos registrados por partida |
+
+### 2. Iniciar a API
+
 ```bash
 cd backend
-./mvnw clean install -DskipTests
+mvn spring-boot:run
 ```
-*(No Windows PowerShell: `.\mvnw.cmd clean install -DskipTests`)*
 
-### 3.2. Execução dos Testes Automatizados
-O projeto conta com **50 testes automatizados** (testes unitários e de integração de controllers) com 100% de taxa de aprovação:
+A API ficará em `http://localhost:8080/api/v1`. Também é possível iniciar pelo wrapper, quando disponível: `./mvnw spring-boot:run` (Linux/macOS) ou `./mvnw.cmd spring-boot:run` (Windows).
+
+> Neste ambiente Windows, o `mvnw.cmd` apresentou uma falha interna do script do wrapper. O Maven instalado (`mvn`) foi usado para compilar e executar os testes.
+
+### 3. Iniciar a interface
+
+Em outro terminal, a partir da raiz:
+
 ```bash
-./mvnw test
+cd frontend
+npm ci
+npm run dev
 ```
-*(No Windows PowerShell: `.\mvnw.cmd test`)*
 
-### 3.3. Execução da Aplicação
-Inicie a aplicação Spring Boot:
+Abra `http://localhost:5173`. A variável `VITE_API_URL` define a origem da API e, por padrão, vale `http://localhost:8080`. Para personalizá-la, crie `frontend/.env` (pode copiar `frontend/.env.example`) e defina, por exemplo:
+
+```dotenv
+VITE_API_URL=http://localhost:8080
+```
+
+O Vite carrega variáveis `VITE_*` do diretório do frontend. Variáveis da API são configurações do processo Java; o arquivo `.env.example` na raiz serve como referência, mas não é carregado automaticamente pelo Spring Boot.
+
+### Parar os serviços
+
+Pare frontend e backend com `Ctrl+C` nos respectivos terminais e o banco com:
+
 ```bash
-./mvnw spring-boot:run
-```
-*(No Windows PowerShell: `.\mvnw.cmd spring-boot:run`)*
-
-A API estará disponível em:
-```
-http://localhost:8080/api/v1
+docker compose down
 ```
 
----
+Para apagar também os dados persistidos do banco, use `docker compose down -v`. **Esse comando remove os dados do volume PostgreSQL.**
 
-## 4. Variáveis de Ambiente
+## Configuração
 
-As configurações da aplicação podem ser sobrescritas por meio de variáveis de ambiente ou arquivo `.env` na raiz do projeto:
+| Variável | Componente | Padrão | Descrição |
+| --- | --- | --- | --- |
+| `DB_HOST` | Backend | `localhost` | Host do PostgreSQL |
+| `DB_PORT` | Backend | `5433` | Porta do PostgreSQL no host |
+| `DB_NAME` | Backend | `senai_futebol` | Nome do banco |
+| `DB_USER` | Backend | `postgres` | Usuário do banco |
+| `DB_PASSWORD` | Backend | `postgres` | Senha do banco |
+| `PORT` | Backend | `8080` | Porta HTTP da API |
+| `CORS_ORIGIN` | Backend | `http://localhost:5173` | Origem permitida para chamadas do navegador |
+| `VITE_API_URL` | Frontend | `http://localhost:8080` | Origem base da API; `/api/v1` é acrescentado pelo cliente HTTP |
 
-| Variável | Descrição | Valor Padrão (`application.yaml`) |
-| :--- | :--- | :--- |
-| `DB_HOST` | Host do PostgreSQL | `localhost` |
-| `DB_PORT` | Porta de conexão do PostgreSQL | `5433` |
-| `DB_NAME` | Nome do banco de dados | `senai_futebol` |
-| `DB_USER` | Usuário do banco de dados | `postgres` |
-| `DB_PASSWORD` | Senha do banco de dados | `postgres` |
-| `PORT` | Porta HTTP do servidor backend | `8080` |
-| `CORS_ORIGIN` | Origem permitida para requisições cross-origin | `http://localhost:5173` |
+Os valores mostrados são convenientes para desenvolvimento local. Use credenciais próprias e restrinja a origem CORS em outros ambientes.
 
-> **Nota de Segurança:** O CORS está configurado para refletir estritamente a URL informada em `CORS_ORIGIN`, com suporte explícito a métodos HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`) e proibição de coringas (`*`).
+## API REST
 
----
+Base: `http://localhost:8080/api/v1`. Os nomes de campos JSON seguem `snake_case`.
 
-## 5. Estrutura de Pastas e Bibliotecas
+| Método | Endpoint | Ação |
+| --- | --- | --- |
+| `GET`, `POST` | `/players` | Listar/pesquisar e cadastrar jogadores |
+| `GET`, `PUT`, `DELETE` | `/players/{id}` | Consultar, editar e remover logicamente um jogador |
+| `GET` | `/players/club/{clubId}` | Listar jogadores de um clube |
+| `PATCH` | `/players/{id}/condition` | Atualizar condição |
+| `POST` | `/players/{id}/buy` | Comprar/vincular jogador |
+| `POST` | `/players/{id}/sell` | Vender jogador |
+| `GET`, `POST` | `/clubs` | Listar e cadastrar clubes |
+| `GET`, `DELETE` | `/clubs/{id}` | Consultar e excluir clube conforme regras |
+| `GET`, `PUT` | `/clubs/{id}/lineup` | Consultar e salvar escalação |
+| `GET` | `/clubs/{id}/transactions` | Consultar histórico financeiro |
+| `GET` | `/clubs/{id}/transactions/export` | Exportar histórico CSV |
+| `GET`, `POST` | `/matches` | Listar e jogar partidas |
+| `GET` | `/matches/{id}` | Consultar detalhes e duelos |
+| `GET` | `/standings` | Consultar classificação |
 
-### 5.1. Estrutura de Pastas
-```
-backend/
-├── pom.xml                               # Gerenciador de dependências e plugins Maven
-├── mvnw / mvnw.cmd                       # Maven Wrapper para execução independente de ambiente
-└── src/
-    ├── main/
-    │   ├── java/com/senai/backend/
-    │   │   ├── config/                   # Configuração de CORS e WebMvc
-    │   │   ├── controller/               # Camada REST (Endpoints da API /api/v1)
-    │   │   ├── domain/calculator/        # Regras de cálculo puras e determinísticas (Overall, Mercado)
-    │   │   ├── dto/
-    │   │   │   ├── request/              # DTOs de entrada validados com Jakarta Validation (@JsonProperty snake_case)
-    │   │   │   └── response/             # DTOs de saída com contratos estritos em snake_case
-    │   │   ├── exception/                # Tratador global (GlobalExceptionHandler) e exceções personalizadas
-    │   │   ├── model/                    # Entidades JPA (Clube, Jogador, Transacao, Escalação, Partida)
-    │   │   ├── repository/               # Interfaces Spring Data JPA com consultas especializadas
-    │   │   ├── service/                  # Lógica de negócio (Jogadores, Clubes, Mercado, Escalações, Partidas)
-    │   │   └── util/                     # Utilitários de data/hora (ISO-8601 offset -03:00) e validação
-    │   └── resources/
-    │       ├── application.yaml          # Propriedades da aplicação Spring Boot
-    │       └── db/migration/             # Scripts SQL versionados do Flyway (V1 a V7)
-    └── test/
-        └── java/com/senai/backend/
-            ├── controller/               # Testes de integração WebMvc dos endpoints REST
-            └── domain/calculator/        # Testes unitários com JUnit 5 @ParameterizedTest
+## Testes e estado conhecido
+
+Execute os testes a partir de `backend/`:
+
+```bash
+mvn test
 ```
 
-### 5.2. Bibliotecas e Dependências Utilizadas
-- **Spring Boot 3.3.5:** Framework principal para desenvolvimento corporativo Java.
-- **Spring Boot Starter Web:** Exposição de endpoints RESTful e serialização JSON via Jackson.
-- **Spring Boot Starter Data JPA (Hibernate):** Mapeamento objeto-relacional e gerenciamento de transações.
-- **Flyway (flyway-core & flyway-database-postgresql):** Controle de migrações e integridade de esquemas de banco de dados.
-- **Spring Boot Starter Validation (Hibernate Validator):** Validação declarativa com anotações (`@NotNull`, `@Size`, `@Min`, `@Max`, `@PositiveOrZero`).
-- **PostgreSQL JDBC Driver:** Conexão nativa de alta performance com o PostgreSQL.
-- **Jackson Datatype JSR310:** Manipulação e formatação estrita de datas no fuso horário de Brasília (`-03:00`).
-- **JUnit 5 (Jupiter & Params):** Criação de testes unitários e testes parametrizados para exaustão de cenários de regras de negócio.
-- **Spring Boot Starter Test & MockMvc:** Simulação de requisições HTTP e validação de contratos REST e status codes.
+A suíte contém testes unitários e de integração. Os testes de controller usam `@SpringBootTest` e a configuração de datasource da aplicação (`localhost:5433/senai_futebol` por padrão). Portanto, execute-os em um banco dedicado de testes, configurando `DB_NAME`, `DB_PORT` e credenciais para uma instância descartável. Não execute testes contra dados que queira preservar: fixtures de testes limpam tabelas e esperam um banco sem dados de execução manual.
 
----
+Na verificação local mais recente, a compilação de produção e testes passou e os 24 testes de `CalculatorTest` passaram. A suíte completa executou, mas falhou em testes de integração porque a base configurada continha registros já existentes e relações que impediram a preparação/limpeza das fixtures. Assim, ainda não há confirmação de aprovação da suíte completa em um banco isolado. Os logs desta execução estão em `backend/target/surefire-reports/`.
 
-## 6. Decisões e Premissas Arquiteturais
+## Oportunidades de evolução
 
-1. **Camada de Domínio Pura e Determinística (`Calculator`):**
-   - Os cálculos de **Overall** (com pesos ponderados por posição e idade) e **Valor de Mercado** (com bônus de potencial e redutor de condição física) foram isolados em classes estáticas puras com tipos primitivos e `BigDecimal`.
-   - **Nenhum valor calculado é persistido no banco de dados** (em conformidade com o critério B3 do barema). As propriedades nas entidades são anotadas com `@Transient`.
+Estes itens são sugestões, não funcionalidades declaradas como concluídas:
 
-2. **Contratos da API em `snake_case` e Isolamento com DTOs:**
-   - Todas as requisições e respostas utilizam `snake_case` com anotações `@JsonProperty` explícitas, garantindo total desacoplamento entre o modelo de banco de dados e a interface pública da API.
+1. **Isolar os testes:** configurar datasource exclusivo para testes e fixtures reprodutíveis, sem dependência do banco usado pela aplicação local.
+2. **Compose completo:** adicionar serviços para API e frontend, além do PostgreSQL, com variáveis de ambiente, health checks e dependências de inicialização.
+3. **Swagger/OpenAPI:** publicar documentação interativa dos endpoints, parâmetros, exemplos, respostas e erros.
+4. **Testes de interface:** automatizar fluxos críticos em navegador (cadastro, compra/venda, escalação e partida), além dos testes de API.
+5. **Acessibilidade e responsividade:** validar navegação por teclado, foco dos modais, leitores de tela e telas menores em todas as rotas.
+6. **Observabilidade de integração:** melhorar mensagens e diagnóstico quando a API ou banco estiver indisponível.
 
-3. **Padronização Temporal com Offset de Brasília (`-03:00`):**
-   - Todas as datas e timestamps de resposta utilizam o padrão ISO-8601 com offset `-03:00` (ex: `2026-10-16T22:00:00-03:00`), eliminando divergências de timezone entre cliente e servidor.
+## Uso de inteligência artificial
 
-4. **Tratamento Global de Erros Sem Exposição de Stack Trace:**
-   - O `GlobalExceptionHandler` intercepta todas as exceções da aplicação, padronizando a resposta em formato JSON `{ "message": "..." }` ou `{ "message": "...", "errors": [...] }`.
-   - Stack traces do Java são estritamente ocultados nas respostas HTTP, prevenindo vazamento de informações de infraestrutura (requisito de segurança B2).
+Ferramentas de IA foram usadas como apoio ao desenvolvimento, revisão e documentação. O backend teve apoio do Antigravity/Gemini; o frontend teve apoio de Claude; Codex foi usado nesta etapa para revisar pontos de qualidade do backend, centralizar o cálculo de fidelidade, declarar a validação de paginação e consolidar esta documentação. A pessoa desenvolvedora revisou e integrou as alterações e realizou testes manuais da aplicação.
 
-5. **Regras de Negócio e Concorrência:**
-   - **RN10:** Normalização de strings (remoção de acentos via `Normalizer.Form.NFD` e minúsculas) com coluna dedicada e restrição de unicidade no banco de dados.
-   - **RN13 e RN14:** Validações de saldo disponível, taxa de transferência da federação de 5% (para valores > R$ 30,00), teto de 50% de caixa para contratação, comissões progressivas na venda e multa rescisória baseada em dias de permanência limitada a R$ 10,00.
-   - **RN18:** Exportação de extrato financeiro em formato CSV padronizado (`text/csv; charset=UTF-8`, delimitador ponto e vírgula `;`, valores monetários com vírgula decimal e quebra de linha `\n`).
-   - **RN19 e RN20:** Validação estrita de escalação tática (1 goleiro + 4 jogadores de linha nas formações 3-1, 2-2, 2-1-1 ou 1-2-1) e simulação de partidas com 6 duelos determinísticos calculados por pesos táticos e redutor de -15% para condição `MAL_CONDICIONADO`.
-
----
-
-## 7. Funcionalidades Não Implementadas
-
-Todas as funcionalidades e regras de negócio exigidas no edital para o **Backend** foram **100% implementadas e validadas**:
-- [x] CRUD completo de Jogadores com paginação, filtros e ordenação multicritério.
-- [x] Regras de evolução, transição de condição física e remoção lógica (*soft delete*).
-- [x] Gestão de Clubes com cálculo dinâmico de valor de elenco e patrimônio líquido.
-- [x] Mercado de Transferências (compra e venda com taxas, comissões, multas e auditoria).
-- [x] Histórico de transações em JSON e exportação em CSV com filtros por tipo e jogador.
-- [x] Gestão de Escalação tática com validações de formação e integridade de elenco.
-- [x] Simulação determinística de partidas com cálculo de duelos e placar.
-- [x] Tabela de classificação dinâmica com critérios oficiais de desempate.
-
----
-
-## 8. Declaração do Uso de Inteligência Artificial
-
-Em estrito cumprimento ao regulamento do Desafio SENAI/PE:
-
-- **Ferramentas de IA Utilizadas:** Antigravity AI Coding Assistant (alimentado pelo modelo Gemini).
-- **Onde foi utilizada:**
-  - Auxílio na estruturação dos DTOs com anotações Jackson `@JsonProperty` e Jakarta Validation.
-  - Formulação dos scripts de migração Flyway e geração de massas de testes parametrizados JUnit 5 cobrindo casos de borda matemáticos (pesos de overall, faixas de comissão de venda, arredondamento half-up de multas e duelos).
-  - Apoio na elaboração e padronização da documentação técnica e estruturação de commits semânticos.
-- **Por que foi utilizada:** Para acelerar o desenvolvimento de código boilerplate, garantir a total cobertura de testes unitários dos cálculos e assegurar conformidade estrita com todos os itens do barema de avaliação.
-- **O que foi aceito:** Estrutura dos DTOs validados, lógica desacoplada da calculadora pura de domínio (`Calculator.java`), suíte de testes de integração e documentação detalhada.
-- **O que foi descartado/ajustado:** Sugestões iniciais de persistência de colunas calculadas no banco de dados (rejeitadas para cumprir rigorosamente o critério B3 de não redundância), uso de coringas no CORS e padrões de data/hora em UTC sem o offset explícito `-03:00` de Brasília. Todo o código gerado foi minuciosamente revisado, ajustado manualmente e validado por bateria completa de testes automatizados.
+A IA foi usada para acelerar tarefas de implementação e análise, não como substituta da validação humana. O backend não foi alterado nas regras de negócio nesta etapa: o cálculo existente foi extraído para compartilhamento entre serviço e mapper, e `page`/`limit` passaram a ser validados por anotações no DTO. A suíte completa ainda precisa ser executada com datasource isolado, conforme a seção de testes.

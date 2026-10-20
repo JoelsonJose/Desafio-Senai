@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.senai.backend.dto.request.ClubeCreateRequest;
 import com.senai.backend.model.Clube;
 import com.senai.backend.model.Jogador;
-import com.senai.backend.model.Partida;
 import com.senai.backend.repository.ClubeRepository;
 import com.senai.backend.repository.JogadorRepository;
 import com.senai.backend.repository.PartidaRepository;
