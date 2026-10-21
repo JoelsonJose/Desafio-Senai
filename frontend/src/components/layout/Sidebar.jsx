@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { Clock, ListOrdered, Plus, Shield, Swords, Trophy, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, ListOrdered, Menu, Plus, Shield, Swords, Trophy, Users, X } from 'lucide-react';
 import { useLeague } from '../../context/LeagueContext';
 import BrandMark from '../ui/BrandMark';
 
@@ -39,18 +40,31 @@ function formatLastMatch(match) {
 
 export default function Sidebar() {
   const { clubs, totalPlayers, matchesCount, lastMatch, loadError } = useLeague();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50">
-      <div className="flex items-center gap-3 px-5 py-5">
-        <BrandMark size={36} className="rounded-xl" />
-        <div>
-          <p className="font-semibold leading-tight text-slate-900">Passe</p>
-          <p className="text-xs text-slate-500">Gestão da liga</p>
+    <aside className="z-20 w-full shrink-0 border-b border-slate-200 bg-slate-50 md:sticky md:top-0 md:flex md:h-screen md:w-64 md:flex-col md:border-b-0 md:border-r">
+      <div className="flex items-center justify-between px-4 py-3 md:justify-start md:gap-3 md:px-5 md:py-5">
+        <div className="flex items-center gap-3">
+          <BrandMark size={36} className="rounded-xl" />
+          <div>
+            <p className="font-semibold leading-tight text-slate-900">Passe</p>
+            <p className="text-xs text-slate-500">Gestão da liga</p>
+          </div>
         </div>
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 md:hidden"
+          aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="main-navigation"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+        </button>
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 pb-4" aria-label="Menu principal">
+      <nav id="main-navigation" className={`${mobileMenuOpen ? 'block' : 'hidden'} space-y-6 overflow-y-auto px-3 pb-4 md:flex md:flex-1 md:flex-col`} aria-label="Menu principal">
         <div>
           <SectionTitle>Mercado</SectionTitle>
           <SidebarLink to="/players" icon={Users} label="Jogadores" count={totalPlayers} />
@@ -89,7 +103,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="m-3 space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="m-3 hidden space-y-3 rounded-2xl border border-slate-200 bg-white p-3 md:block">
         <div className="flex items-start gap-3">
           <Trophy className="mt-0.5 h-4 w-4 text-slate-500" aria-hidden="true" />
           <div>

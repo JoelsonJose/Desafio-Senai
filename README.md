@@ -12,14 +12,37 @@ Aplicação web para administrar uma liga fictícia: jogadores, clubes, mercado 
 - Simulação de partidas, visualização do placar e dos seis duelos, além da tabela de classificação.
 - Interface em português, sem autenticação.
 
-## Tecnologias
+## Pré-requisitos
 
-| Parte | Tecnologias |
-| --- | --- |
-| Frontend | React 18, Vite 5, React Router 6, Axios, Tailwind CSS 3 e Lucide |
-| Backend | Java 21, Spring Boot 3.3, Spring Web, Spring Data JPA, Jakarta Validation, Flyway e Springdoc OpenAPI |
-| Banco | PostgreSQL 16 |
-| Testes backend | JUnit 5, Spring Boot Test e MockMvc |
+- Ubuntu 24.04 (ambiente de referência da avaliação).
+- Java 21 e Maven 3.9 ou superior para executar a API localmente (validação feita com Maven 3.9.12).
+- Node.js 20 LTS ou 22 LTS e npm (validação feita com Node.js 22.20.0 e npm 10.9.3) para executar o frontend localmente.
+- Docker Engine 28.5.1 e Docker Compose 2.40.0 ou compatíveis para iniciar o banco ou a aplicação completa.
+- Git para obter o repositório.
+
+Para o fluxo recomendado com Compose, Docker é suficiente; Java, Maven e Node.js só são necessários para executar os componentes fora dos containers.
+
+## Tecnologias e motivo de uso
+
+| Parte | Biblioteca/ferramenta e versão | Motivo |
+| --- | --- | --- |
+| Frontend | React 18.3.1 | Construir a interface por componentes e manter estado das telas. |
+| Frontend | Vite 5.4.21 | Servir e compilar o projeto React; oferece inicialização rápida no desenvolvimento. |
+| Frontend | React Router 6.30.6 | Declarar navegação por URL entre as telas sem recarregar a página. |
+| Frontend | Axios 1.20.0 | Centralizar chamadas HTTP, URL base e tratamento de falhas da API. |
+| Frontend | Tailwind CSS 3.4.19 | Compor estilos utilitários da interface a partir do mockup. |
+| Frontend | Lucide React 0.344.0 | Usar ícones vetoriais consistentes com os controles da interface. |
+| Backend | Java 21; Spring Boot 3.3.5 | Implementar a API REST e organizar sua configuração e execução. |
+| Backend | Spring Web (gerenciado pelo Spring Boot) | Expor controllers e endpoints HTTP. |
+| Backend | Spring Data JPA/Hibernate (gerenciado pelo Spring Boot) | Persistir entidades e executar consultas no PostgreSQL. |
+| Backend | Jakarta Validation (gerenciado pelo Spring Boot) | Validar dados de entrada declarativamente nos DTOs. |
+| Backend | Flyway (gerenciado pelo Spring Boot) | Versionar e aplicar as migrações do schema na inicialização. |
+| Backend | Springdoc OpenAPI 2.6.0 | Gerar a especificação OpenAPI e a Swagger UI dos endpoints. |
+| Backend | PostgreSQL JDBC (gerenciado pelo Spring Boot) | Conectar a aplicação Java ao PostgreSQL. |
+| Testes | Spring Boot Test, JUnit 5 e JUnit Params (gerenciados pelo Spring Boot/JUnit) | Executar testes unitários, de integração e parametrizados. |
+| Infraestrutura | PostgreSQL 16, Docker Compose v2 | Disponibilizar banco e serviços locais de forma reproduzível. |
+
+As versões transitivas do backend são gerenciadas pelo Spring Boot 3.3.5. O `frontend/package-lock.json` fixa as versões efetivamente instaladas pelo npm.
 
 ## Arquitetura
 
@@ -41,6 +64,8 @@ Navegador
 - `src/context/LeagueContext.jsx` disponibiliza totais da liga e funções para atualizar o resumo compartilhado.
 - `src/hooks/` contém hooks para carregamento assíncrono, ações, formulários e debounce.
 - As páginas usam os serviços para obter dados e enviar comandos; regras de negócio e persistência permanecem na API.
+
+Estrutura principal: `src/components/` (layout e componentes comuns), `src/context/` (resumo compartilhado da liga), `src/hooks/` (comportamentos reutilizáveis), `src/pages/` (telas), `src/services/` (cliente HTTP por domínio) e `src/utils/` (formatação e funções auxiliares).
 
 ### Rotas da interface
 
@@ -66,20 +91,15 @@ Navegador
 - Flyway controla a evolução do schema em `src/main/resources/db/migration/`.
 - Springdoc gera o contrato OpenAPI dos controllers; Swagger UI fica em `/swagger-ui.html` e o JSON em `/v3/api-docs`.
 
+Estrutura principal: `src/main/java/.../controller`, `dto`, `service`, `repository`, `model`, `domain` e `util`; configurações e migrações ficam em `src/main/resources/`.
+
 ## Regras de negócio cobertas
 
 As regras são aplicadas pela API, mesmo quando a interface também fornece validação para facilitar o uso. Entre elas estão os limites e atributos de jogadores, limite de elenco, saldo para compra, taxa federativa, fidelidade, multa e comissão de venda, elegibilidade e formação da escalação, condição dos atletas, cálculo dos duelos e critérios de classificação. A interface não substitui as validações do backend.
 
-## Pré-requisitos
-
-- Java 21.
-- Maven 3.9 ou superior (ou Maven Wrapper, se funcionar no ambiente).
-- Node.js 20 ou superior e npm.
-- Docker com Docker Compose v2 para executar banco, API e frontend em containers.
-
 ## Executar localmente
 
-Os comandos abaixo partem da raiz do repositório.
+Os comandos abaixo partem da raiz do repositório no Ubuntu 24.04. O endpoint base da API (sem `/api/v1`) é `http://localhost:8080`; a interface fica em `http://localhost:5173`. A trava do frontend, `frontend/package-lock.json`, está versionada e é instalada por `npm ci`.
 
 ### Aplicação completa com Docker Compose
 
@@ -137,6 +157,7 @@ Em outro terminal, a partir da raiz:
 
 ```bash
 cd frontend
+cp .env.example .env
 npm ci
 npm run dev
 ```
@@ -147,7 +168,7 @@ Abra `http://localhost:5173`. A variável `VITE_API_URL` define a origem da API 
 VITE_API_URL=http://localhost:8080
 ```
 
-O Vite carrega variáveis `VITE_*` do diretório do frontend. Variáveis da API são configurações do processo Java; o arquivo `.env.example` na raiz serve como referência, mas não é carregado automaticamente pelo Spring Boot.
+O Vite carrega `VITE_*` do diretório do frontend. Para desenvolvimento local, copie `frontend/.env.example` para `frontend/.env`. O arquivo `.env.example` da raiz documenta as variáveis da API; ele é referência para configurar o processo Java, não é carregado automaticamente pelo Spring Boot.
 
 ### Parar os serviços
 
@@ -170,7 +191,7 @@ Para apagar também os dados persistidos do banco, use `docker compose down -v`.
 | `DB_PASSWORD` | Backend | `postgres` | Senha do banco |
 | `PORT` | Backend | `8080` | Porta HTTP da API |
 | `CORS_ORIGIN` | Backend | `http://localhost:5173` | Origem permitida para chamadas do navegador |
-| `VITE_API_URL` | Frontend | `http://localhost:8080` | Origem base da API; `/api/v1` é acrescentado pelo cliente HTTP |
+| `VITE_API_URL` | Frontend (`frontend/.env`) | `http://localhost:8080` | Origem base da API; `/api/v1` é acrescentado pelo cliente HTTP |
 
 O Swagger documenta os endpoints automaticamente a partir dos controllers e DTOs. A dependência `springdoc-openapi-starter-webmvc-ui` foi escolhida por integrar OpenAPI e Swagger UI ao Spring MVC/Spring Boot 3; não altera as regras nem os contratos de negócio da API.
 
@@ -209,19 +230,23 @@ A suíte contém testes unitários e de integração. Os testes de controller us
 
 Na verificação local mais recente, a compilação de produção e testes passou e os 24 testes de `CalculatorTest` passaram. A suíte completa executou, mas falhou em testes de integração porque a base configurada continha registros já existentes e relações que impediram a preparação/limpeza das fixtures. Assim, ainda não há confirmação de aprovação da suíte completa em um banco isolado. Os logs desta execução estão em `backend/target/surefire-reports/`.
 
-## Oportunidades de evolução
+## Decisões e premissas
 
-Estes itens são sugestões, não funcionalidades declaradas como concluídas:
+- A interface e a documentação estão em português, seguindo os textos do mockup e do enunciado.
+- O frontend não implementa autenticação: o fluxo definido para esta aplicação não exige login.
+- O cliente HTTP usa `VITE_API_URL` como origem e acrescenta `/api/v1`; em execução local, a origem padrão é `http://localhost:8080`.
+- A API é a fonte dos valores calculados e das regras de negócio. O frontend valida os campos para orientar o preenchimento, mas exibe o resultado/erro devolvido pela API e não recalcula regras de domínio.
+- Datas e horas apresentadas ou enviadas pela interface seguem o horário de Brasília (UTC−3), como requerido no desafio.
+- `docker compose up --build -d` é o caminho mais simples para iniciar a aplicação completa; a execução individual dos serviços também está descrita acima.
 
-1. **Isolar os testes:** configurar datasource exclusivo para testes e fixtures reprodutíveis, sem dependência do banco usado pela aplicação local.
-2. **Compose completo:** adicionar serviços para API e frontend, além do PostgreSQL, com variáveis de ambiente, health checks e dependências de inicialização.
-3. **Swagger/OpenAPI:** publicar documentação interativa dos endpoints, parâmetros, exemplos, respostas e erros.
-4. **Testes de interface:** automatizar fluxos críticos em navegador (cadastro, compra/venda, escalação e partida), além dos testes de API.
-5. **Acessibilidade e responsividade:** validar navegação por teclado, foco dos modais, leitores de tela e telas menores em todas as rotas.
-6. **Observabilidade de integração:** melhorar mensagens e diagnóstico quando a API ou banco estiver indisponível.
+## Funcionalidades não implementadas
+
+Não há funcionalidade obrigatória conhecida pendente na aplicação. Permanecem melhorias diferenciais, que não fazem parte do fluxo funcional obrigatório: testes automatizados de componente ou ponta a ponta no frontend; comandos de lint e verificação de formatação do frontend; logs estruturados por requisição; e uma suíte de integração do backend aprovada em banco isolado. A responsividade em 375 px está sendo refinada e deve ser conferida manualmente nas telas indicadas pelo barema antes de ser declarada como validada.
 
 ## Uso de inteligência artificial
 
-Ferramentas de IA foram usadas como apoio ao desenvolvimento, revisão e documentação. O backend teve apoio do Antigravity/Gemini; o frontend teve apoio de Claude; Codex foi usado nesta etapa para revisar pontos de qualidade do backend, centralizar o cálculo de fidelidade, declarar a validação de paginação e consolidar esta documentação. A pessoa desenvolvedora revisou e integrou as alterações e realizou testes manuais da aplicação.
+- **Antigravity/Gemini — `backend/`:** apoio à implementação da API e das regras do desafio. O desenvolvedor revisou as alterações e conferiu os fluxos e validações; o código foi aceito após essa revisão.
+- **Claude — `frontend/src/`:** apoio à arquitetura React, às telas baseadas no mockup do Figma e ao consumo da API. O desenvolvedor comparou a interface com o mockup, fez ajustes e testou os fluxos; as telas integradas foram aceitas após revisão.
+- **Codex — backend, infraestrutura e este README:** apoio à revisão de paginação/DTO, extração do cálculo de fidelidade já existente para reuso, configuração OpenAPI/Swagger, Compose completo e documentação. Essas alterações foram revisadas e integradas; a extração preservou a regra de cálculo e não foi solicitada mudança de regra de negócio.
 
-A IA foi usada para acelerar tarefas de implementação e análise, não como substituta da validação humana. O backend não foi alterado nas regras de negócio nesta etapa: o cálculo existente foi extraído para compartilhamento entre serviço e mapper, e `page`/`limit` passaram a ser validados por anotações no DTO. A suíte completa ainda precisa ser executada com datasource isolado, conforme a seção de testes.
+As sugestões de IA foram tratadas como propostas e conferidas contra o enunciado, a API e o mockup antes da integração. Alterações que não correspondessem a esses requisitos não foram mantidas. Não há uma proposta descartada específica registrada na versão final. A execução da suíte completa do backend ainda depende de banco de testes isolado, conforme descrito acima.

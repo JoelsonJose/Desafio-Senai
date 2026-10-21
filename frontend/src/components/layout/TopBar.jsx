@@ -33,12 +33,12 @@ export default function TopBar() {
   const trail = buildBreadcrumb(pathname, clubs);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-8">
-      <nav aria-label="Localização" className="flex items-center gap-2 text-sm">
+    <header className="flex h-14 min-w-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 sm:px-6 md:px-8">
+      <nav aria-label="Localização" className="flex min-w-0 items-center gap-1 overflow-hidden text-xs sm:gap-2 sm:text-sm">
         {trail.map((item, index) => (
           <Fragment key={`${index}-${item}`}>
             {index > 0 && <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />}
-            <span className={index === trail.length - 1 ? 'font-medium text-slate-900' : 'text-slate-500'}>{item}</span>
+            <span className={`truncate ${index === trail.length - 1 ? 'font-medium text-slate-900' : 'text-slate-500'}`}>{item}</span>
           </Fragment>
         ))}
       </nav>
