@@ -244,8 +244,7 @@ Não há funcionalidade obrigatória conhecida pendente na aplicação. Permanec
 ## Uso de inteligência artificial
 
 - **Codex — principal apoio de arquitetura, implementação e revisão:** o desenvolvedor definiu a direção da arquitetura e usou o Codex para estruturar e aplicar o backend em camadas MVC com DTOs e o frontend em React, com rotas, páginas, componentes, serviços HTTP, hooks e contexto compartilhado. O apoio também acelerou a escrita e a organização do código e foi usado continuamente para revisar, refinar e retestar a aplicação contra os requisitos do desafio. As decisões e alterações foram conferidas pelo desenvolvedor antes de serem aceitas.
-- **Antigravity/Gemini — apoio complementar no `backend/`:** utilizado durante a implementação da API e das regras do desafio; as alterações foram revisadas e os fluxos e validações foram conferidos pelo desenvolvedor.
-- **Claude — apoio complementar no `frontend/src/`:** utilizado nas telas baseadas no mockup do Figma e no consumo da API; o desenvolvedor comparou a interface com o mockup, fez ajustes e testou os fluxos.
+
 - **Codex — revisão técnica e infraestrutura:** também apoiou a revisão de paginação/DTO, a extração para reuso do cálculo de fidelidade já existente, a configuração OpenAPI/Swagger, o Compose completo e a documentação. Essas alterações foram revisadas e integradas; a extração preservou a regra de cálculo e não mudou a regra de negócio.
 
 As ferramentas de IA foram usadas como apoio, não como substitutas da autoria e da revisão do desenvolvedor. As sugestões foram conferidas contra o enunciado, a API e o mockup antes da integração; alterações que não correspondessem aos requisitos não foram mantidas. Não há uma proposta descartada específica registrada na versão final.
