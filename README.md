@@ -17,7 +17,7 @@ Aplicação web para administrar uma liga fictícia: jogadores, clubes, mercado 
 | Parte | Tecnologias |
 | --- | --- |
 | Frontend | React 18, Vite 5, React Router 6, Axios, Tailwind CSS 3 e Lucide |
-| Backend | Java 21, Spring Boot 3.3, Spring Web, Spring Data JPA, Jakarta Validation e Flyway |
+| Backend | Java 21, Spring Boot 3.3, Spring Web, Spring Data JPA, Jakarta Validation, Flyway e Springdoc OpenAPI |
 | Banco | PostgreSQL 16 |
 | Testes backend | JUnit 5, Spring Boot Test e MockMvc |
 
@@ -64,6 +64,7 @@ Navegador
 - `domain/calculator/` concentra cálculos de domínio; `util/` contém mapeadores e utilitários compartilhados.
 - `GlobalExceptionHandler` converte erros em respostas JSON sem expor stack traces.
 - Flyway controla a evolução do schema em `src/main/resources/db/migration/`.
+- Springdoc gera o contrato OpenAPI dos controllers; Swagger UI fica em `/swagger-ui.html` e o JSON em `/v3/api-docs`.
 
 ## Regras de negócio cobertas
 
@@ -74,15 +75,32 @@ As regras são aplicadas pela API, mesmo quando a interface também fornece vali
 - Java 21.
 - Maven 3.9 ou superior (ou Maven Wrapper, se funcionar no ambiente).
 - Node.js 20 ou superior e npm.
-- Docker com Docker Compose v2 para executar o PostgreSQL.
+- Docker com Docker Compose v2 para executar banco, API e frontend em containers.
 
 ## Executar localmente
 
 Os comandos abaixo partem da raiz do repositório.
 
+### Aplicação completa com Docker Compose
+
+Um único comando constrói e inicia PostgreSQL, API e frontend. O backend aguarda o banco ficar saudável; o frontend aguarda a API responder.
+
+```bash
+docker compose up --build -d
+```
+
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8080/api/v1`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Especificação OpenAPI: `http://localhost:8080/v3/api-docs`
+
+Para acompanhar os serviços, use `docker compose logs -f`. Para pará-los, use `docker compose down`. Os dados ficam no volume `pgdata`; `docker compose down -v` também apaga esse volume.
+
+O Compose inicia a interface com o servidor de desenvolvimento Vite. As imagens são construídas a partir de `backend/Dockerfile` e `frontend/Dockerfile`.
+
 ### 1. Iniciar o banco
 
-O `docker-compose.yml` atual inicia **somente o PostgreSQL**; frontend e backend são iniciados separadamente.
+Para executar a API e o frontend fora do Docker, inicie somente o banco:
 
 ```bash
 docker compose up -d db
@@ -153,6 +171,8 @@ Para apagar também os dados persistidos do banco, use `docker compose down -v`.
 | `PORT` | Backend | `8080` | Porta HTTP da API |
 | `CORS_ORIGIN` | Backend | `http://localhost:5173` | Origem permitida para chamadas do navegador |
 | `VITE_API_URL` | Frontend | `http://localhost:8080` | Origem base da API; `/api/v1` é acrescentado pelo cliente HTTP |
+
+O Swagger documenta os endpoints automaticamente a partir dos controllers e DTOs. A dependência `springdoc-openapi-starter-webmvc-ui` foi escolhida por integrar OpenAPI e Swagger UI ao Spring MVC/Spring Boot 3; não altera as regras nem os contratos de negócio da API.
 
 Os valores mostrados são convenientes para desenvolvimento local. Use credenciais próprias e restrinja a origem CORS em outros ambientes.
 

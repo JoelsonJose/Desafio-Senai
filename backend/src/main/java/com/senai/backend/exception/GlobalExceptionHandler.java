@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
     // Ex.: abc, 0, -1, 1.5, 01, > 2147483647
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        if ("id".equals(ex.getName()) || ex.getName().endsWith("Id")) {
+        if (ex.getParameter().hasParameterAnnotation(PathVariable.class)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse("Identificador de recurso inválido ou inexistente."));
         }

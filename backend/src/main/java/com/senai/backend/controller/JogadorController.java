@@ -2,6 +2,7 @@ package com.senai.backend.controller;
 
 import com.senai.backend.dto.request.CondicaoRequest;
 import com.senai.backend.dto.request.JogadorCreateRequest;
+import com.senai.backend.dto.request.JogadorListQueryRequest;
 import com.senai.backend.dto.request.JogadorUpdateRequest;
 import com.senai.backend.dto.request.PaginationRequest;
 import com.senai.backend.dto.response.JogadorResponse;
@@ -11,7 +12,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 
@@ -30,18 +30,23 @@ public class JogadorController {
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "position", required = false) String position,
             @RequestParam(name = "condition", required = false) String condition,
-            @RequestParam(name = "free", required = false) Boolean free,
-            @RequestParam(name = "club_id", required = false) Integer clubId,
-            @RequestParam(name = "min_age", required = false) Integer minAge,
-            @RequestParam(name = "max_age", required = false) Integer maxAge,
-            @RequestParam(name = "min_value", required = false) BigDecimal minValue,
-            @RequestParam(name = "max_value", required = false) BigDecimal maxValue,
+            @RequestParam(name = "free", required = false) String free,
+            @RequestParam(name = "club_id", required = false) String clubId,
+            @RequestParam(name = "min_age", required = false) String minAge,
+            @RequestParam(name = "max_age", required = false) String maxAge,
+            @RequestParam(name = "min_value", required = false) String minValue,
+            @RequestParam(name = "max_value", required = false) String maxValue,
             @RequestParam(name = "sort", required = false) String sort,
             @Valid @ModelAttribute PaginationRequest pagination
     ) {
+        JogadorListQueryRequest query = new JogadorListQueryRequest(
+                search, position, condition, free, clubId, minAge, maxAge, minValue, maxValue, sort
+        );
+        query.validateSyntax();
         PaginatedResponse<JogadorResponse> response = jogadorService.listarPaginado(
-                search, position, condition, free, clubId,
-                minAge, maxAge, minValue, maxValue, sort, pagination.getPage(), pagination.getLimit()
+                query.getSearch(), query.getPosition(), query.getCondition(), query.getFree(), query.getClubId(),
+                query.getMinAge(), query.getMaxAge(), query.getMinValue(), query.getMaxValue(), query.getSort(),
+                pagination.getPageNumber(), pagination.getLimitNumber()
         );
 
         return ResponseEntity.ok(response);

@@ -68,20 +68,18 @@ public class ClubeService {
         Collator collator = Collator.getInstance(new Locale("pt", "BR"));
         collator.setStrength(Collator.PRIMARY);
 
-        if ("net_worth_asc".equalsIgnoreCase(sort) || "net_worth_desc".equalsIgnoreCase(sort)) {
-            boolean desc = "net_worth_desc".equalsIgnoreCase(sort);
-            clubes.sort((c1, c2) -> {
-                BigDecimal p1 = calcularPatrimonio(c1);
-                BigDecimal p2 = calcularPatrimonio(c2);
-                int cmp = p1.compareTo(p2);
-                if (cmp == 0) {
-                    cmp = collator.compare(c1.getNome(), c2.getNome());
-                }
-                if (cmp == 0) {
-                    cmp = c1.getId().compareTo(c2.getId());
-                }
-                return desc ? -cmp : cmp;
-            });
+        if (sort != null && !List.of("name", "net_worth_asc", "net_worth_desc").contains(sort)) {
+            throw new IllegalArgumentException("O parâmetro sort deve ser name, net_worth_asc ou net_worth_desc.");
+        }
+
+        if ("net_worth_asc".equals(sort) || "net_worth_desc".equals(sort)) {
+            Comparator<Clube> byWorth = Comparator.comparing(this::calcularPatrimonio);
+            if ("net_worth_desc".equals(sort)) {
+                byWorth = byWorth.reversed();
+            }
+            clubes.sort(byWorth
+                    .thenComparing(Clube::getNome, collator)
+                    .thenComparing(Clube::getId));
         } else {
             // Padrão: alfabético por nome com desempate por id
             clubes.sort((c1, c2) -> {

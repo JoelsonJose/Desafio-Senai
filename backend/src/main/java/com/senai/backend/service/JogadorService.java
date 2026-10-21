@@ -185,6 +185,33 @@ public class JogadorService {
             int page,
             int limit
     ) {
+        if (search != null && (search.trim().length() < 2 || search.trim().length() > 100)) {
+            throw new IllegalArgumentException("O parâmetro search deve ter entre 2 e 100 caracteres.");
+        }
+        if (position != null && !List.of("GOL", "ZAG", "LAT", "MEI", "ATA").contains(position)) {
+            throw new IllegalArgumentException("O parâmetro position deve ser GOL, ZAG, LAT, MEI ou ATA.");
+        }
+        if (condition != null && !List.of("APTO", "MAL_CONDICIONADO", "DOENTE").contains(condition)) {
+            throw new IllegalArgumentException("O parâmetro condition deve ser APTO, MAL_CONDICIONADO ou DOENTE.");
+        }
+        if (clubId != null && clubId < 1) {
+            throw new IllegalArgumentException("O parâmetro club_id deve ser um inteiro positivo.");
+        }
+        if (minAge != null && (minAge < 16 || minAge > 45)
+                || maxAge != null && (maxAge < 16 || maxAge > 45)) {
+            throw new IllegalArgumentException("Os parâmetros min_age e max_age devem estar entre 16 e 45.");
+        }
+        if (minValue != null && (minValue.signum() < 0 || minValue.compareTo(new BigDecimal("550")) > 0 || minValue.scale() > 2)
+                || maxValue != null && (maxValue.signum() < 0 || maxValue.compareTo(new BigDecimal("550")) > 0 || maxValue.scale() > 2)) {
+            throw new IllegalArgumentException("Os parâmetros min_value e max_value devem estar entre 0 e 550, com até 2 casas decimais.");
+        }
+        if (limit < 1 || limit > 50) {
+            throw new IllegalArgumentException("O parâmetro limit deve estar entre 1 e 50.");
+        }
+        if (page < 1) {
+            throw new IllegalArgumentException("O parâmetro page deve ser maior ou igual a 1.");
+        }
+
         // Validações de contradição de filtros (400 Bad Request)
         if (minAge != null && maxAge != null && minAge > maxAge) {
             throw new IllegalArgumentException("Filtro de idade inválido: min_age não pode ser maior que max_age.");
@@ -288,21 +315,36 @@ public class JogadorService {
     }
 
     private Comparator<Jogador> buildComparator(String sortParam) {
-        if (sortParam == null || sortParam.trim().isEmpty()) {
-            return Comparator.comparing(Jogador::getId);
+        Collator collator = Collator.getInstance(new Locale("pt", "BR"));
+        collator.setStrength(Collator.PRIMARY);
+
+        if (sortParam == null) {
+            return Comparator.comparing(Jogador::getNome, collator).thenComparing(Jogador::getId);
         }
 
-        String[] tokens = sortParam.split(",");
-        Comparator<Jogador> combined = null;
+        String[] tokens = sortParam.split(",", -1);
+        if (tokens.length == 0 || tokens.length > 2 || sortParam.isBlank()) {
+            throw new IllegalArgumentException("O parâmetro sort deve conter um ou dois critérios válidos, sem espaços.");
+        }
 
-        Collator collator = Collator.getInstance(new Locale("pt", "BR"));
-        collator.setStrength(Collator.PRIMARY); // ignora acentos e maiúsculas/minúsculas
+        Comparator<Jogador> combined = null;
+        java.util.Set<String> fields = new java.util.HashSet<>();
 
         for (String token : tokens) {
-            String trimmed = token.trim();
+            String field = switch (token) {
+                case "name" -> "name";
+                case "value_asc", "value_desc" -> "value";
+                case "age_asc", "age_desc" -> "age";
+                case "position" -> "position";
+                default -> throw new IllegalArgumentException("Valor inválido para o parâmetro sort.");
+            };
+            if (!fields.add(field)) {
+                throw new IllegalArgumentException("O parâmetro sort não pode repetir o mesmo campo.");
+            }
+
             Comparator<Jogador> currentComp = null;
 
-            switch (trimmed) {
+            switch (token) {
                 case "name":
                     currentComp = (j1, j2) -> collator.compare(j1.getNome(), j2.getNome());
                     break;
@@ -321,9 +363,8 @@ public class JogadorService {
                 case "position":
                     currentComp = Comparator.comparingInt(j -> POSICAO_ORDEM.getOrDefault(j.getPosicao(), 99));
                     break;
-                default:
-                    currentComp = Comparator.comparing(Jogador::getId);
-                    break;
+                default: // Os tokens já foram validados acima.
+                    throw new IllegalArgumentException("Valor inválido para o parâmetro sort.");
             }
 
             if (combined == null) {
@@ -333,8 +374,8 @@ public class JogadorService {
             }
         }
 
-        // Desempate padrão por ID
-        return combined != null ? combined.thenComparing(Jogador::getId) : Comparator.comparing(Jogador::getId);
+        // Após os critérios solicitados, desempata pelo nome e, por fim, pelo ID.
+        return combined.thenComparing(Jogador::getNome, collator).thenComparing(Jogador::getId);
     }
 
     private Contrato buscarContratoAtivoSeHouver(Jogador jogador) {
