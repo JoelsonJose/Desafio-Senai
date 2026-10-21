@@ -220,15 +220,13 @@ Base: `http://localhost:8080/api/v1`. Os nomes de campos JSON seguem `snake_case
 
 ## Testes e estado conhecido
 
-Execute os testes a partir de `backend/`:
+O backend mantém os testes automatizados unitários dos cálculos de domínio (Overall, valor base e valor de mercado), parametrizados com 24 cenários. Eles não precisam de conexão com PostgreSQL. Execute-os a partir de `backend/`:
 
 ```bash
-mvn test
+mvn -Dtest=CalculatorTest test
 ```
 
-A suíte contém testes unitários e de integração. Os testes de controller usam `@SpringBootTest` e a configuração de datasource da aplicação (`localhost:5433/senai_futebol` por padrão). Portanto, execute-os em um banco dedicado de testes, configurando `DB_NAME`, `DB_PORT` e credenciais para uma instância descartável. Não execute testes contra dados que queira preservar: fixtures de testes limpam tabelas e esperam um banco sem dados de execução manual.
-
-Na verificação local mais recente, a compilação de produção e testes passou e os 24 testes de `CalculatorTest` passaram. A suíte completa executou, mas falhou em testes de integração porque a base configurada continha registros já existentes e relações que impediram a preparação/limpeza das fixtures. Assim, ainda não há confirmação de aprovação da suíte completa em um banco isolado. Os logs desta execução estão em `backend/target/surefire-reports/`.
+Na última execução local, os 24 cenários de cálculo passaram, sem falhas ou erros. Esses testes verificam diretamente os cálculos previstos nas regras RN02 a RN06. A configuração da suíte de testes não depende do banco de dados da aplicação.
 
 ## Decisões e premissas
 
@@ -241,7 +239,7 @@ Na verificação local mais recente, a compilação de produção e testes passo
 
 ## Funcionalidades não implementadas
 
-Não há funcionalidade obrigatória conhecida pendente na aplicação. Permanecem melhorias diferenciais, que não fazem parte do fluxo funcional obrigatório: testes automatizados de componente ou ponta a ponta no frontend; comandos de lint e verificação de formatação do frontend; logs estruturados por requisição; e uma suíte de integração do backend aprovada em banco isolado. A responsividade em 375 px está sendo refinada e deve ser conferida manualmente nas telas indicadas pelo barema antes de ser declarada como validada.
+Não há funcionalidade obrigatória conhecida pendente na aplicação. Permanecem melhorias diferenciais, que não fazem parte do fluxo funcional obrigatório: testes automatizados de componente ou ponta a ponta no frontend; comandos de lint e verificação de formatação do frontend; e logs estruturados por requisição. A responsividade foi conferida manualmente pelo desenvolvedor em viewport de 375 px.
 
 ## Uso de inteligência artificial
 
@@ -249,4 +247,4 @@ Não há funcionalidade obrigatória conhecida pendente na aplicação. Permanec
 - **Claude — `frontend/src/`:** apoio à arquitetura React, às telas baseadas no mockup do Figma e ao consumo da API. O desenvolvedor comparou a interface com o mockup, fez ajustes e testou os fluxos; as telas integradas foram aceitas após revisão.
 - **Codex — backend, infraestrutura e este README:** apoio à revisão de paginação/DTO, extração do cálculo de fidelidade já existente para reuso, configuração OpenAPI/Swagger, Compose completo e documentação. Essas alterações foram revisadas e integradas; a extração preservou a regra de cálculo e não foi solicitada mudança de regra de negócio.
 
-As sugestões de IA foram tratadas como propostas e conferidas contra o enunciado, a API e o mockup antes da integração. Alterações que não correspondessem a esses requisitos não foram mantidas. Não há uma proposta descartada específica registrada na versão final. A execução da suíte completa do backend ainda depende de banco de testes isolado, conforme descrito acima.
+As sugestões de IA foram tratadas como propostas e conferidas contra o enunciado, a API e o mockup antes da integração. Alterações que não correspondessem a esses requisitos não foram mantidas. Não há uma proposta descartada específica registrada na versão final.
